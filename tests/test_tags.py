@@ -1,11 +1,12 @@
 from pathlib import Path
 
 import pytest
-from mutagen.id3 import APIC, COMM, ID3, SYLT, TXXX, USLT
+from mutagen.id3 import APIC, COMM, ID3, PRIV, SYLT, TXXX, USLT
 
 from tracksmith.cache import file_hash
+from tracksmith.embedded_timing import TIMING_OWNER
 from tracksmith.jobs import Cancelled, JobContext
-from tracksmith.model import Artwork, LyricLine
+from tracksmith.model import Artwork, LyricLine, Word
 from tracksmith.tags import compressed_audio_hash, read_track, save_track
 
 
@@ -185,3 +186,168 @@ def test_replacement_failure_keeps_original_and_cleans_temporary(mp3, monkeypatc
         save_track(track)
     assert mp3.read_bytes() == original
     assert set(mp3.parent.iterdir()) == original_files
+
+
+def test_mixed_line_and_word_timings_roundtrip_inside_mp3(mp3, tmp_path):
+    track = read_track(mp3)
+    track.display_lyrics = "Line only\nHello,  world!\nMissing\nHello,  world!\nNot sung"
+    track.aligned_lines = [
+        LyricLine("Line only", 0.1),
+        LyricLine(
+            "Hello,  world!",
+            0.7,
+            1.6,
+            0.8,
+            "ai",
+            [Word("Hello", 0.7, 0.9, 0.9), Word("world", 1.2, 1.6, 0.8)],
+            line_reviewed=True,
+            words_reviewed=True,
+        ),
+        LyricLine("Missing"),
+        LyricLine(
+            "Hello,  world!",
+            2,
+            2.9,
+            1,
+            "manual",
+            [Word("Hello", 2, 2.3, 1, "manual"), Word("world", 2.5, 2.9, 1, "manual")],
+        ),
+        LyricLine("Not sung", excluded=True),
+    ]
+    before_audio = compressed_audio_hash(mp3, JobContext())
+    before_files = set(mp3.parent.iterdir())
+    save_track(track)
+    tags = ID3(mp3)
+    assert tags.getall("SYLT")[0].text == [
+        ("\nLine only", 100),
+        ("\nHello,", 700),
+        ("  world!", 1200),
+        ("\nHello,", 2000),
+        ("  world!", 2500),
+    ]
+    assert any(frame.owner == TIMING_OWNER for frame in tags.getall("PRIV"))
+    assert compressed_audio_hash(mp3, JobContext()) == before_audio
+    assert set(mp3.parent.iterdir()) == before_files
+    # A copied MP3 needs no application cache or companion file to restore its words.
+    copied = tmp_path / "portable.mp3"
+    copied.write_bytes(mp3.read_bytes())
+    reopened = read_track(copied)
+    assert reopened.aligned_lines == track.aligned_lines
+    assert [line.line_id for line in reopened.aligned_lines] == [
+        line.line_id for line in track.aligned_lines
+    ]
+    assert not reopened.dirty
+
+
+@pytest.mark.parametrize("private_data", ["missing", "malformed", "stale"])
+def test_standard_word_cues_work_without_valid_private_data(mp3, private_data):
+    tags = ID3(mp3)
+    tags.add(
+        SYLT(
+            encoding=3,
+            lang="eng",
+            desc="Tracksmith",
+            format=2,
+            type=1,
+            text=[("\nHello", 500), (" world", 1000), ("\nLine only", 2000)],
+        )
+    )
+    if private_data != "missing":
+        tags.add(
+            PRIV(
+                owner=TIMING_OWNER,
+                data=(
+                    b"not json"
+                    if private_data == "malformed"
+                    else b'{"version":1,"duration":4,"lyrics":"wrong","lines":[]}'
+                ),
+            )
+        )
+    tags.save(mp3)
+    track = read_track(mp3)
+    assert [line.text for line in track.aligned_lines] == ["Hello world", "Line only"]
+    assert [line.start for line in track.aligned_lines] == [0.5, 2]
+    assert [word.start for word in track.aligned_lines[0].words] == [0.5, 1]
+    assert all(word.source == "estimated" for word in track.aligned_lines[0].words)
+    assert not track.aligned_lines[1].words
+
+
+def test_clear_words_then_clear_lines_removes_embedded_data_and_keeps_other_frames(mp3):
+    tags = ID3(mp3)
+    tags.add(PRIV(owner="other.player", data=b"keep me"))
+    tags.save(mp3)
+    track = read_track(mp3)
+    track.display_lyrics = "Hello world"
+    track.aligned_lines = [
+        LyricLine(
+            "Hello world",
+            0.5,
+            1.5,
+            words=[Word("Hello", 0.5, 0.8), Word("world", 1, 1.5)],
+        )
+    ]
+    track = save_track(track)
+    track.aligned_lines[0].words = []
+    track.aligned_lines[0].end = None
+    track = save_track(track)
+    tags = ID3(mp3)
+    assert tags.getall("SYLT")[0].text == [("\nHello world", 500)]
+    assert [(frame.owner, frame.data) for frame in tags.getall("PRIV")] == [
+        ("other.player", b"keep me")
+    ]
+    track.aligned_lines[0].set_timestamp(None, track.audio.duration)
+    save_track(track)
+    assert not ID3(mp3).getall("SYLT")
+    assert read_track(mp3).display_lyrics == "Hello world"
+
+
+def test_metadata_save_migrates_cached_words_into_mp3(mp3):
+    track = read_track(mp3)
+    track.display_lyrics = "Hello world"
+    track.aligned_lines = [LyricLine("Hello world", 0.5)]
+    save_track(track)
+    track = read_track(mp3)
+    track.aligned_lines[0].words = [Word("Hello", 0.5, 0.8), Word("world", 1, 1.5)]
+    track.aligned_lines[0].end = 1.5
+    # Existing installations restore cached words as the saved baseline.
+    track.mark_saved()
+    track.proposed_metadata.title = "Changed title"
+    save_track(track)
+    assert read_track(mp3).aligned_lines[0].words == track.aligned_lines[0].words
+
+
+def test_invalid_word_timing_save_keeps_original(mp3):
+    track = read_track(mp3)
+    track.display_lyrics = "Hello world"
+    track.aligned_lines = [
+        LyricLine(
+            "Hello world",
+            0.5,
+            1.5,
+            words=[Word("Hello", 0.5, 1.2), Word("world", 1, 1.5)],
+        )
+    ]
+    original = mp3.read_bytes()
+    with pytest.raises(ValueError, match="overlap"):
+        save_track(track)
+    assert mp3.read_bytes() == original
+
+
+def test_external_word_edit_does_not_restore_stale_private_timing(mp3):
+    track = read_track(mp3)
+    track.display_lyrics = "Hello world"
+    track.aligned_lines = [
+        LyricLine(
+            "Hello world",
+            0.5,
+            1.5,
+            words=[Word("Hello", 0.5, 0.8), Word("world", 1, 1.5)],
+        )
+    ]
+    save_track(track)
+    tags = ID3(mp3)
+    tags.getall("SYLT")[0].text = [("\nHello", 500), (" world", 1300)]
+    tags.save(mp3)
+    reopened = read_track(mp3)
+    assert [word.start for word in reopened.aligned_lines[0].words] == [0.5, 1.3]
+    assert all(word.source == "estimated" for word in reopened.aligned_lines[0].words)

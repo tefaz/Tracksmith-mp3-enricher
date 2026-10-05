@@ -1,0 +1,12 @@
+Tracksmith
+Source: https://github.com/tefaz/Tracksmith-mp3-enricher
+Author: Mads Nørgaard <madds.noergaard@gmail.com>
+
+No license has been selected for Tracksmith itself. See the source repository
+for the current licensing information.
+
+Bundled third-party components retain their own licenses. Python's license is
+in python/lib/python3.12/LICENSE.txt; wheel licenses are in their respective
+*.dist-info directories under python/lib/python3.12/site-packages. Debian
+XCB helper library copyright notices are under licenses/ in this bundle.
+BUNDLED-PACKAGES.txt lists the installed Python package versions.

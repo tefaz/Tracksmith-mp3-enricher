@@ -53,9 +53,6 @@ def test_unload_entire_category_keeps_other_songs(qtbot, mp3, tmp_path, category
     assert window.category_filter.itemText(category + 1).endswith("(0)")
     assert not window.unload_category_button.isEnabled()
     assert all(path.read_bytes() == data for path, data in originals.items())
-    recovery = window.workspace_store.read(window.workspace_store.drafts_path)
-    assert str(first.path) not in str(recovery)
-    assert str(hidden.path) not in str(recovery)
     window.close()
 
 

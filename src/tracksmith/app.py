@@ -58,13 +58,6 @@ def main():
     window = MainWindow(settings)
     window.show()
 
-    def startup():
-        window.offer_recovery()
-        if args.mp3:
-            if window.job:
-                window._pending_startup_path = args.mp3
-            else:
-                window.open_path(args.mp3)
-
-    QTimer.singleShot(0, startup)
+    if args.mp3:
+        QTimer.singleShot(0, lambda: window.open_path(args.mp3))
     return app.exec()

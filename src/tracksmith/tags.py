@@ -7,13 +7,20 @@ from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
 
-from mutagen.id3 import APIC, ID3, SYLT, USLT, Encoding, Frames, PictureType
+from mutagen.id3 import APIC, ID3, PRIV, SYLT, USLT, Encoding, Frames, PictureType
 from mutagen.mp3 import MP3
 
 from .cache import file_hash
+from .embedded_timing import (
+    TIMING_OWNER,
+    read_timing_payload,
+    sylt_cues,
+    sylt_lines,
+    timing_payload,
+)
 from .jobs import JobContext
 from .lyrics import split_lyrics, timed_lines
-from .model import Artwork, AudioInfo, LyricLine, Metadata, Track
+from .model import Artwork, AudioInfo, Metadata, Track
 
 TAG_MAP = {
     "title": "TIT2",
@@ -85,15 +92,7 @@ def read_track(path: Path, context: JobContext | None = None) -> Track:
         if sync is not None:
             track.sync_frame_key = sync.HashKey
             track.sync_language = sync.lang
-            track.aligned_lines = [
-                LyricLine(
-                    text.lstrip("\n"),
-                    ms / 1000,
-                    source="embedded",
-                    note="Existing timestamps; verify against local audio",
-                )
-                for text, ms in sync.text
-            ]
+            track.aligned_lines = sylt_lines(sync.text, track.audio.duration)
             if not track.display_lyrics:
                 track.display_lyrics = "\n".join(line.text for line in track.aligned_lines)
             else:
@@ -105,6 +104,13 @@ def read_track(path: Path, context: JobContext | None = None) -> Track:
                 track.aligned_lines = combined + [line for line in embedded if id(line) not in used]
         else:
             track.aligned_lines = split_lyrics(track.display_lyrics)
+        if sync is not None:
+            for frame in tags.getall("PRIV"):
+                if frame.owner == TIMING_OWNER:
+                    lines = read_timing_payload(frame.data, track, sync.text)
+                    if lines is not None:
+                        track.aligned_lines = lines
+                        break
         track.mark_saved()
         return track
 
@@ -124,8 +130,11 @@ def changes(track: Track) -> list[str]:
     if previous.get("lyrics") != track.display_lyrics:
         result.append("Update plain lyrics (USLT)")
     if previous.get("lines") != track.editable_state()["lines"]:
+        words = len(track.aligned_words)
         result.append(
-            f"Write {len(timed_lines(track.aligned_lines))} timed lines (SYLT, milliseconds)"
+            f"Write {len(timed_lines(track.aligned_lines))} timed lines"
+            + (f" and {words} timed words" if words else "")
+            + " (SYLT, milliseconds)"
         )
     return result
 
@@ -195,7 +204,11 @@ def _write_tags(path: Path, track: Track):
                     text=track.display_lyrics,
                 )
             )
-    if state["lines"] != old.get("lines"):
+    payload = timing_payload(track)
+    private_frames = [frame for frame in tags.getall("PRIV") if frame.owner == TIMING_OWNER]
+    if state["lines"] != old.get("lines") or (
+        payload is not None and not any(frame.data == payload for frame in private_frames)
+    ):
         if track.sync_frame_key:
             tags.pop(track.sync_frame_key, None)
         lines = timed_lines(track.aligned_lines)
@@ -207,9 +220,13 @@ def _write_tags(path: Path, track: Track):
                     desc=DESCRIPTION,
                     format=2,
                     type=1,
-                    text=[("\n" + line.text, round(line.start * 1000)) for line in lines],
+                    text=sylt_cues(lines),
                 )
             )
+        for frame in private_frames:
+            tags.pop(frame.HashKey, None)
+        if payload is not None:
+            tags.add(PRIV(owner=TIMING_OWNER, data=payload))
     # Mutagen's v2.4 path preserves modern/unknown frames better than conversion to v2.3.
     audio.save(v2_version=4)
     return tags

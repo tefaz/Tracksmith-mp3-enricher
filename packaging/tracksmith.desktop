@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Tracksmith
+Comment=Find lyrics and album covers and create embedded line and word timings
+Exec=tracksmith %f
+Icon=tracksmith
+Terminal=false
+StartupNotify=true
+Categories=AudioVideo;Audio;
+MimeType=audio/mpeg;

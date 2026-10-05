@@ -144,7 +144,7 @@ class SaveReviewDialog(QDialog):
         body.addLayout(covers)
         s = review_summary(track.aligned_lines)
         summary = QLabel(
-            f"{s['timed']} timed lines · {s['missing']} unresolved omissions · {s['excluded']} intentionally excluded · {s['review']} need listening review\n\nMP3: song details, cover, plain lyrics and line starts.\nApplication storage: word starts/ends and review decisions.\nTiming project (.json): portable copy that can be reopened.\n\nAudio is preserved without re-encoding. Output ID3 version: 2.4."
+            f"{s['timed']} timed lines · {s['missing']} unresolved omissions · {s['excluded']} intentionally excluded · {s['review']} need listening review\n\nMP3: song details, cover, plain lyrics, line timings and word timings.\nApplication storage: additional timing/review data for compatibility.\nTiming project (.json): portable copy that can be reopened.\n\nAudio is preserved without re-encoding. Output ID3 version: 2.4."
         )
         summary.setWordWrap(True)
         body.addWidget(summary)

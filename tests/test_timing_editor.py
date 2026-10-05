@@ -209,9 +209,9 @@ def test_word_data_export_and_mp3_save_keep_in_memory_words(qtbot, mp3, tmp_path
     qtbot.waitUntil(lambda: window.job is None)
     assert window.track.aligned_lines[0].words == line.words
     assert not window.track.dirty
-    # Current MP3 SYLT is deliberately line-level. Word export retains ends and scores.
+    # Both standard word starts and exact editing data travel inside the MP3.
     assert read_track(mp3).aligned_lines[0].start == 0.5
-    assert not read_track(mp3).aligned_lines[0].words
+    assert read_track(mp3).aligned_lines[0].words == line.words
     assert len(read_track(mp3).aligned_lines) == 2
     reopened = window_for(qtbot, mp3, tmp_path)
     assert reopened.track.aligned_lines[0].words == line.words

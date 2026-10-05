@@ -93,7 +93,7 @@ from .timing_data import (
 )
 from .timing_editor import WordTimingDialog
 from .waveform import Waveform, decode_overview
-from .workspace import WorkspaceStore, apply_state, encode_artwork, validated_state
+from .workspace import WorkspaceStore, apply_state, encode_artwork
 
 
 class CandidateDialog(QDialog):
@@ -199,7 +199,7 @@ class SettingsDialog(QDialog):
         }
         names = {
             "cache_directory": "Cache folder",
-            "workspace_directory": "Drafts and corrected timings",
+            "workspace_directory": "Preferences and corrected timings",
             "confidence_threshold": "Review threshold",
             "separate_vocals": "Separate vocals first",
             "ai_backend": "Alignment method",
@@ -400,12 +400,6 @@ class MainWindow(QMainWindow):
         self._restoring_history = False
         self._pending_close = False
         self._exit_save_queue = []
-        self._recovery_suspended = False
-        self._unrestored_drafts = []
-        self.recovery_timer = QTimer(self)
-        self.recovery_timer.setSingleShot(True)
-        self.recovery_timer.setInterval(700)
-        self.recovery_timer.timeout.connect(self.save_recovery)
         self.track: Track | None = None
         self.sessions: list[SongSession] = []
         self.job: Job | None = None
@@ -490,7 +484,6 @@ class MainWindow(QMainWindow):
             del session.history[:-80]
             session.redo.clear()
         self._edit_baseline = after
-        self.schedule_recovery()
 
     def restore_edit(self, snapshot):
         self._restoring_history = True
@@ -508,7 +501,6 @@ class MainWindow(QMainWindow):
             self._edit_baseline = self.edit_snapshot()
         finally:
             self._restoring_history = False
-        self.schedule_recovery()
 
     def redo_edit(self):
         session = self.current_session()
@@ -523,37 +515,6 @@ class MainWindow(QMainWindow):
         session.history.append(command)
         self.restore_edit(command["after"])
         self.statusBar().showMessage(f"Redid {command['label']}")
-
-    def schedule_recovery(self):
-        if self.sessions:
-            self.recovery_timer.start()
-
-    def save_recovery(self):
-        self.remember_current_song()
-        if self._recovery_suspended:
-            self.update_paused_recovery_status()
-            return False
-        try:
-            self.workspace_store.save(self.sessions, self._unrestored_drafts)
-            self.recovery_state.setText(
-                "An automatic recovery copy of your workspace has been saved. "
-                "Use Review & save to MP3 to write your edits to the song file."
-            )
-            return True
-        except (OSError, ValueError) as exc:
-            self.recovery_state.setText(
-                f"The automatic recovery copy could not be saved: {exc}\n"
-                "Use Review & save to MP3 to save your current song."
-            )
-            return False
-
-    def update_paused_recovery_status(self):
-        self.recovery_state.setText(
-            "Automatic recovery is paused because drafts from a previous session were kept. "
-            "Your current edits are not being copied for recovery. Use File → Restore previous "
-            "workspace or Discard retained recovery to resume automatic recovery. "
-            "You can still use Review & save to MP3 to save your current song."
-        )
 
     def restore_presentation(self):
         geometry = self.preferences.get("geometry")
@@ -588,139 +549,6 @@ class MainWindow(QMainWindow):
             self.workspace_store.save_preferences(self.preferences)
         except OSError:
             pass
-
-    def offer_recovery(self):
-        if self.job:
-            self.statusBar().showMessage(
-                "Wait for the current operation before restoring recovery."
-            )
-            return
-        self.remember_current_song()
-        if self.sessions and any(
-            session.track.dirty or session.lyrics_pending for session in self.sessions
-        ):
-            self.error(
-                "Save or close your current unsaved songs before restoring another workspace."
-            )
-            return
-        try:
-            data = self.workspace_store.recovery()
-        except (OSError, ValueError) as exc:
-            self._recovery_suspended = True
-            self.discard_recovery_action.setEnabled(True)
-            self.update_paused_recovery_status()
-            self.error(f"Recovery workspace could not be loaded: {exc}")
-            return
-        if not data or not data["songs"]:
-            return
-        answer = QMessageBox.question(
-            self,
-            "Restore previous workspace",
-            f"Restore {len(data['songs'])} songs from {data.get('saved_at', 'the last session')}?\nMP3 files will remain unchanged.",
-            QMessageBox.StandardButton.Yes
-            | QMessageBox.StandardButton.Discard
-            | QMessageBox.StandardButton.Cancel,
-        )
-        if answer == QMessageBox.StandardButton.Discard:
-            self.workspace_store.discard()
-            self._recovery_suspended = False
-            self._unrestored_drafts = []
-            self.discard_recovery_action.setEnabled(False)
-            self.recovery_state.setText(
-                "Previous recovery drafts were discarded. "
-                "Automatic recovery copies will be saved after edits."
-            )
-            return
-        if answer != QMessageBox.StandardButton.Yes:
-            self._recovery_suspended = True
-            self.discard_recovery_action.setEnabled(True)
-            self.update_paused_recovery_status()
-            return
-        self._recovery_suspended = True
-        self.discard_recovery_action.setEnabled(True)
-        entries = []
-        skipped_entries = []
-        for entry in data["songs"]:
-            path = Path(entry["path"])
-            if not path.exists():
-                replacement, _ = QFileDialog.getOpenFileName(
-                    self,
-                    f"Relocate {path.name} (Cancel skips this song)",
-                    str(path.parent),
-                    "MP3 (*.mp3)",
-                )
-                if not replacement:
-                    skipped_entries.append(entry)
-                    continue
-                path = Path(replacement)
-            entries.append((path, entry))
-
-        def restore(context):
-            results, errors = [], []
-            retained = list(skipped_entries)
-            for path, entry in entries:
-                context.check()
-                try:
-                    track = read_track(path, context)
-                    if (
-                        track.content_hash != entry["hash"]
-                        or track.audio.duration != entry["duration"]
-                    ):
-                        raise ValueError("file changed since the draft; reopen it separately")
-                    state = validated_state(entry["draft"], track.audio.duration)
-                    baseline = validated_state(entry["baseline"], track.audio.duration)
-                    apply_state(track, state)
-                    track._saved_state = baseline
-                    results.append((track, entry))
-                except Cancelled:
-                    raise
-                except Exception as exc:
-                    errors.append(f"{path.name}: {exc}")
-                    retained.append(entry)
-            return results, errors, retained
-
-        def restored(result):
-            results, errors, retained = result
-            self._recovery_suspended = False
-            self._unrestored_drafts = retained
-            self.discard_recovery_action.setEnabled(bool(retained))
-            for track, entry in results:
-                self.load_track(track, restoring=True)
-                session = self.current_session()
-                session.lyrics_pending = bool(entry.get("pending"))
-                session.playback_position = max(
-                    0, min(round(track.audio.duration * 1000), int(entry.get("position", 0)))
-                )
-                session.selected_line = max(0, int(entry.get("selected", 0)))
-                self.display_song(self.sessions.index(session))
-            self.finish_job_display(
-                "Workspace restored",
-                "Unsaved changes are drafts; save each MP3 explicitly."
-                + ("\n" + "\n".join(errors) if errors else ""),
-            )
-            self.schedule_recovery()
-
-        self.start_job(restore, restored, name="Restoring previous workspace")
-
-    def discard_retained_recovery(self):
-        answer = QMessageBox.question(
-            self,
-            "Discard retained recovery",
-            "Discard the previous workspace's recovery drafts? Current loaded songs and MP3s are unchanged.",
-            QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Cancel,
-        )
-        if answer != QMessageBox.StandardButton.Discard:
-            return
-        try:
-            self.workspace_store.discard()
-        except OSError as exc:
-            self.error(f"Recovery could not be discarded: {exc}")
-            return
-        self._unrestored_drafts = []
-        self._recovery_suspended = False
-        self.discard_recovery_action.setEnabled(False)
-        self.save_recovery()
 
     def _button(self, text, handler, layout):
         button = QPushButton(text)
@@ -1189,13 +1017,6 @@ class MainWindow(QMainWindow):
         self.activity_dialog.resize(620, 300)
         activity_layout = QVBoxLayout(self.activity_dialog)
         activity_layout.addWidget(self.job_panel)
-        activity_layout.addWidget(label("Draft recovery", "section"))
-        self.recovery_state = label(
-            "Automatic recovery copies are saved after edits. "
-            "Use Review & save to MP3 to write your edits to the song file."
-        )
-        activity_layout.addWidget(self.recovery_state)
-
         footer, footer_box = card()
         actions = QHBoxLayout()
         self.next_step = label("Load an MP3 to get started.")
@@ -1235,12 +1056,6 @@ class MainWindow(QMainWindow):
         self.update_recent_menu()
         self.unload_song_action = file_menu.addAction("Unload song", self.close_song)
         file_menu.addAction("Close saved songs", self.close_saved_songs)
-        file_menu.addAction("Restore previous workspace", self.offer_recovery)
-        file_menu.addAction("Recovery status", self.show_recovery_status)
-        self.discard_recovery_action = file_menu.addAction(
-            "Discard retained recovery", self.discard_retained_recovery
-        )
-        self.discard_recovery_action.setEnabled(False)
         self.save_action = QAction("Save to MP3", self)
         self.save_action.setShortcut(QKeySequence.StandardKey.Save)
         self.save_action.triggered.connect(self.save)
@@ -1281,7 +1096,6 @@ class MainWindow(QMainWindow):
         self.filename_action = tools.addAction(
             "Propose tags from filename", self.filename_suggestion
         )
-        self.fingerprint_action = tools.addAction("Identify with AcoustID", self.fingerprint)
         automatic_timing = tools.addMenu("Automatic timing")
         self.analyze_action = automatic_timing.addAction("Analyze timing", self.analyze)
         self.analyze_action.setToolTip(
@@ -1300,15 +1114,14 @@ class MainWindow(QMainWindow):
         )
         self.settings_action = tools.addAction("Settings", self.edit_settings)
         self.cache_action = tools.addAction("Manage disposable caches", self.inspect_cache)
-        self.undo_action = tools.addAction("Undo", self.undo_stamp)
-        self.redo_action = tools.addAction("Redo", self.redo_edit)
+        self.undo_action = QAction("Undo", self)
+        self.undo_action.triggered.connect(self.undo_stamp)
+        self.redo_action = QAction("Redo", self)
+        self.redo_action.triggered.connect(self.redo_edit)
         self.redo_action.setStatusTip("Ctrl+Shift+Z while the timing table has focus")
         tools.addAction("Edit lookup terms", self.edit_search_hints)
         view = self.menuBar().addMenu("View")
         view.addAction("Activity", self.show_activity)
-        view.addAction("Song details", lambda: self.focus_section("details"))
-        view.addAction("Lyrics and timing", lambda: self.focus_section("lyrics"))
-        view.addAction("Focus timing review", lambda: self.focus_section("timing"))
         self.wave_action = view.addAction("Show waveform")
         self.wave_action.setCheckable(True)
         self.wave_action.toggled.connect(self.toggle_waveform)
@@ -1360,7 +1173,6 @@ class MainWindow(QMainWindow):
             self.export_action,
             self.export_words_action,
             self.filename_action,
-            self.fingerprint_action,
             self.analyze_action,
             self.fresh_analysis_action,
             self.import_project_action,
@@ -1385,9 +1197,6 @@ class MainWindow(QMainWindow):
         self.activity_dialog.show()
         self.activity_dialog.raise_()
         self.activity_dialog.activateWindow()
-
-    def show_recovery_status(self):
-        QMessageBox.information(self, "Draft recovery", self.recovery_state.text())
 
     def _title(self):
         self.refresh_song_list()
@@ -1592,7 +1401,6 @@ class MainWindow(QMainWindow):
             actions = WrappingLayout()
             for text, value in (
                 ("Save selected", "save"),
-                ("Keep recovery drafts", "keep"),
                 ("Discard edits", "discard"),
                 ("Cancel", "cancel"),
             ):
@@ -1611,16 +1419,7 @@ class MainWindow(QMainWindow):
             root.addLayout(actions)
             dialog.resize(720, 380)
             dialog.exec()
-            if choice["value"] == "keep":
-                return self.save_recovery()
             if choice["value"] == "discard":
-                try:
-                    if not self._recovery_suspended:
-                        self.workspace_store.save([], self._unrestored_drafts)
-                except OSError as exc:
-                    self.error(str(exc))
-                    return False
-                self.recovery_timer.stop()
                 return True
             if choice["value"] == "save":
                 self._exit_save_queue = [
@@ -1851,7 +1650,6 @@ class MainWindow(QMainWindow):
             )
             self.display_song(index)
         self.refresh_song_list()
-        self.save_recovery()
         self.finish_job_display(
             f"Batch {'cancelled' if result.cancelled else 'completed'} · {len(result.saved)} MP3s saved",
             "\n".join(f"{path.name}: {message}" for path, message in result.rows)
@@ -1966,7 +1764,6 @@ class MainWindow(QMainWindow):
                     "\n".join(timing_warnings)
                     or "Select a song to edit lyrics and stamp line timings.",
                 )
-            self.schedule_recovery()
 
         self.start_job(
             read,
@@ -2032,11 +1829,10 @@ class MainWindow(QMainWindow):
                         return "Corrected timings loaded, but could not be copied into protected storage. Export a timing project."
         return ""
 
-    def load_track(self, track: Track, restoring=False):
-        if not restoring:
-            warning = self.restore_loaded_timing(track)
-            if warning:
-                self.statusBar().showMessage(warning)
+    def load_track(self, track: Track):
+        warning = self.restore_loaded_timing(track)
+        if warning:
+            self.statusBar().showMessage(warning)
         self.remember_current_song()
         index = next(
             (
@@ -2203,7 +1999,6 @@ class MainWindow(QMainWindow):
             self._lyrics_pending = True
             self._title()
             self.update_timing_selection()
-            self.schedule_recovery()
             self.statusBar().showMessage(
                 "Apply the edited lyrics before timing, exporting, or saving"
             )
@@ -2993,10 +2788,6 @@ class MainWindow(QMainWindow):
         self._enabled()
         if self._pending_close and self.job is None and not getattr(self, "_saving_on_exit", False):
             QTimer.singleShot(0, self.close)
-        if self.job is None and getattr(self, "_pending_startup_path", None):
-            path = self._pending_startup_path
-            self._pending_startup_path = None
-            QTimer.singleShot(0, lambda: self.open_path(path))
 
     def cancel_job(self):
         if self.job:
@@ -3419,16 +3210,15 @@ class MainWindow(QMainWindow):
         self.player.setPosition(self._save_position)
         self.finish_job_display(
             f"Saved {track.path.name}",
-            "Tags and compressed audio verified. Word timings are in application storage; export a timing project for a portable copy."
+            "Tags and compressed audio verified. Line and word timings are embedded in the MP3; timing projects are optional portable editing copies."
             if cache_saved
-            else "MP3 saved, but word timing storage failed. Export a timing project now to preserve corrected words.",
+            else "MP3 saved with embedded timings, but the additional application timing cache could not be updated.",
         )
         self.statusBar().showMessage(
             "Saved; tags and compressed audio verified"
             if cache_saved
-            else "MP3 saved; rich timing cache could not be written. Export timing JSON to preserve words."
+            else "MP3 saved with embedded timings; the additional timing cache could not be written."
         )
-        self.save_recovery()
         if self._exit_save_queue:
             QTimer.singleShot(0, self.save_next_on_exit)
         elif getattr(self, "_saving_on_exit", False):
@@ -3451,14 +3241,14 @@ class MainWindow(QMainWindow):
             if not inventory:
                 self.finish_job_display(
                     "No disposable caches found",
-                    "Recovery drafts and corrected timing snapshots are kept in application storage.",
+                    "Corrected timing snapshots are kept in application storage.",
                 )
                 return
             dialog = QDialog(self)
             dialog.setWindowTitle("Choose disposable caches to remove")
             root = QVBoxLayout(dialog)
             explanation = QLabel(
-                "Removed search, artwork, waveform and original AI results can be recreated. Corrected timings, recovery drafts, portable projects and model weights are preserved."
+                "Removed search, artwork, waveform and original AI results can be recreated. Corrected timings, portable projects and model weights are preserved."
             )
             explanation.setWordWrap(True)
             root.addWidget(explanation)
@@ -3484,7 +3274,7 @@ class MainWindow(QMainWindow):
                         lambda context: clear_disposable(directory, inventory, chosen, context),
                         lambda count: self.finish_job_display(
                             "Cache cleanup completed",
-                            f"Removed {count} disposable files. Corrected timings and drafts kept.",
+                            f"Removed {count} disposable files. Corrected timings kept.",
                         ),
                         name="Removing selected disposable caches",
                     )
@@ -3503,7 +3293,6 @@ class MainWindow(QMainWindow):
                 settings = dialog.settings()
                 self.settings = settings
                 self.workspace_store = WorkspaceStore(settings.workspace_directory)
-                self.save_recovery()
                 if self.track:
                     self.render_table()
             except (ValueError, OSError, json.JSONDecodeError) as exc:
@@ -3743,7 +3532,6 @@ class MainWindow(QMainWindow):
                 self._rendering = False
         self.refresh_song_list()
         self._enabled()
-        self.save_recovery()
 
     def update_recent_menu(self):
         self.recent_menu.clear()
@@ -3977,10 +3765,10 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(dialog)
         tabs = QTabWidget()
         chapters = {
-            "Workflow": "Load MP3s → check details and lyrics → apply lyric changes → analyze or time manually → listen and review → save. Opening and importing never write an MP3. Save always reviews the selected song.\n\nUse the Lyrics & timing tab for lyric editing and listening review. The Song details tab contains editable tags, artwork and file information. The View menu also switches tabs and focuses the lyric editor or timing table. You can edit tags and save without timing any lyrics.\n\nPaste one sung line per row. Keep [Verse] headings if useful; explicitly repeat chorus occurrences. Pending lyric edits lock the old timing table. Applying changes previews removed timings and can be undone.\n\nFind details/lyrics uses online sources only on request. Edit search terms independently from your tags. Proposals let you choose fields and keep your cover.",
+            "Workflow": "Load MP3s → check details and lyrics → apply lyric changes → analyze or time manually → listen and review → save. Opening and importing never write an MP3. Save always reviews the selected song.\n\nUse the Lyrics & timing tab for lyric editing and listening review. The Song details tab contains editable tags, artwork and file information. You can edit tags and save without timing any lyrics.\n\nPaste one sung line per row. Keep [Verse] headings if useful; explicitly repeat chorus occurrences. Pending lyric edits lock the old timing table. Applying changes previews removed timings and can be undone.\n\nFind details/lyrics uses online sources only on request. Edit search terms independently from your tags. Proposals let you choose fields and keep your cover.",
             "Timing keys": "Enter stamps from anywhere in the main window except text fields and dialogs. Other timing shortcuts apply when the lyric table has focus.\n\nSpace: play/pause. Backspace: stop and return to the beginning (except in text fields). Paused Up/Down: select and seek. Left/Right: nudge ±100 ms; Shift: ±1 second. Enter: stamp only the indicated untimed line. Delete: clear the selected line timing while paused (also works after using playback controls). Ctrl+Z: undo; Ctrl+Shift+Z: redo. Ctrl+O opens songs; Ctrl+S reviews saving.\n\nPlayback owns one highlighted line and the Enter target. Pause to choose another. Held Enter cannot stamp multiple lines. To replace a timestamp, pause, select the line and use Clear time, then play and press Enter at the new start. Review decision → Not sung in this version excludes a line persistently.",
             "Word review": "Drag words or boundaries, or use the selected-word Start/End inspector. Chart Up/Down selects words. Left/Right moves by 10 ms; Ctrl changes the start and Shift changes the end. Exact table/tap controls are optional.\n\nPlayback is bounded to the review window; Loop this section repeats it. Apply + previous/next line commits the valid draft and navigates. Validation identifies the offending word. Cancel asks before discarding your manual changes.\n\nEqual spacing is an estimate. Model support is a heuristic, never a correctness probability. Mark line and word listening review separately; moving a line does not certify its words. Mark words reviewed preserves their support/provenance. Not sung leaves plain lyrics intact and omits synchronized output.",
-            "Saving and recovery": "Edits stay in a working draft until Review & save to MP3. Recoverable drafts are saved after changes in application data storage, separately from caches. On startup, restore the previous workspace; changed files are rejected and missing ones can be relocated. Canceling recovery retains the old draft and pauses new recovery until you restore or discard it. Failed/skipped drafts remain preserved.\n\nClosing offers Save selected, Keep recovery drafts, Discard or Cancel. Each save follows its normal review. Undo is per song and does not automatically roll back files.\n\nMP3 and LRC retain line starts. Timing projects (.json) retain metadata, artwork, display lyrics, word boundaries, review decisions and excluded lines. Export one for a portable copy; reopen it against its original MP3. Imported LRC remains unreviewed.\n\nView → Show waveform provides local amplitude navigation and zoom; it is not lyric evidence. The playback bar shows position and duration beside the volume control. Appearance offers light/dark/system, font size and reduced motion. Settings validates fields before closing and checks local dependency presence without downloads.",
+            "Saving": "Edits stay in a working draft until Review & save to MP3. Unsaved edits are kept only while the app is open.\n\nClosing offers Save selected, Discard edits or Cancel. Each save follows its normal review. Undo is per song and does not automatically roll back files.\n\nMP3s retain line starts and available word timings, including exact word ends. Ordinary LRC retains line starts. Timing projects (.json) retain metadata, artwork, display lyrics, word boundaries, review decisions and excluded lines. Export one for a portable copy; reopen it against its original MP3. Imported LRC remains unreviewed.\n\nView → Show waveform provides local amplitude navigation and zoom; it is not lyric evidence. The playback bar shows position and duration beside the volume control. Appearance offers light/dark/system, font size and reduced motion. Settings validates fields before closing and checks local dependency presence without downloads.",
         }
         for name, text in chapters.items():
             page = QPlainTextEdit(text)
@@ -4029,10 +3817,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Cancelling before closing; your edits are kept.")
             event.ignore()
         elif self.confirm_discard():
-            self.recovery_timer.stop()
             self.save_presentation()
-            if not any(session.track.dirty or session.lyrics_pending for session in self.sessions):
-                self.save_recovery()
             QApplication.instance().removeEventFilter(self)
             self.player.stop()
             event.accept()

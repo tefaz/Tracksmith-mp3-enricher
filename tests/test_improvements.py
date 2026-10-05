@@ -28,7 +28,6 @@ from tracksmith.timing_data import (
 from tracksmith.timing_editor import WordTimingDialog
 from tracksmith.ui import MainWindow, SettingsDialog
 from tracksmith.waveform import decode_overview
-from tracksmith.workspace import apply_state, validated_state
 
 
 def ready(qtbot, window):
@@ -135,48 +134,6 @@ def test_pending_lyrics_lock_the_old_table_without_losing_text(qtbot, mp3, tmp_p
     assert window.track.aligned_lines[0].start == 0.5
     window.table.item(0, 1).setText("Stale table edit")
     assert window.track.display_lyrics == text
-
-
-def test_recovery_keeps_two_drafts_pending_text_and_original_baseline(qtbot, mp3, tmp_path):
-    window = timed_window(qtbot, mp3, tmp_path)
-    first_hash = file_hash(mp3)
-    window.metadata_fields["title"].setText("Unsaved title")
-    window.metadata_edited()
-    window.lyrics_editor.setPlainText("Pending lyrics\nWith headings")
-    second = tmp_path / "second.mp3"
-    second.write_bytes(mp3.read_bytes())
-    window.load_track(read_track(second))
-    window.lyrics_editor.setPlainText("Second draft")
-    window.save_recovery()
-    data = window.workspace_store.recovery()
-    assert len(data["songs"]) == 2 and data["songs"][0]["pending"]
-    entry = data["songs"][0]
-    reopened = read_track(mp3)
-    apply_state(reopened, validated_state(entry["draft"], reopened.audio.duration))
-    reopened._saved_state = validated_state(entry["baseline"], reopened.audio.duration)
-    assert reopened.dirty
-    assert reopened.display_lyrics == "Pending lyrics\nWith headings"
-    assert reopened.proposed_metadata.title == "Unsaved title"
-    assert file_hash(mp3) == first_hash
-    window.workspace_store.discard()
-    assert window.workspace_store.recovery()["songs"] == []
-
-
-def test_startup_recovery_restores_without_writing_mp3(qtbot, mp3, tmp_path, monkeypatch):
-    window = timed_window(qtbot, mp3, tmp_path)
-    window.table.selectRow(1)
-    window.review_decision("excluded")
-    window.save_recovery()
-    source_hash = file_hash(mp3)
-    restored = MainWindow(window.settings)
-    qtbot.addWidget(restored)
-    restored.show()
-    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
-    restored.offer_recovery()
-    qtbot.waitUntil(lambda: restored.track is not None and restored.job is None)
-    assert restored.track.aligned_lines[1].excluded
-    assert restored.track.dirty
-    assert file_hash(mp3) == source_hash
 
 
 def test_project_roundtrip_validation_and_legacy_migration(qtbot, mp3, tmp_path):
@@ -322,56 +279,6 @@ def test_waveform_is_local_cached_and_cancellable(qtbot, mp3, tmp_path):
     assert window.waveform.view_end - window.waveform.view_start < track.audio.duration
 
 
-def test_declining_recovery_preserves_old_drafts(qtbot, mp3, tmp_path, monkeypatch):
-    old = timed_window(qtbot, mp3, tmp_path)
-    old.save_recovery()
-    old.recovery_timer.stop()
-    original = old.workspace_store.drafts_path.read_bytes()
-    new = MainWindow(old.settings)
-    qtbot.addWidget(new)
-    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Cancel)
-    new.offer_recovery()
-    new.load_track(read_track(mp3))
-    new.lyrics_editor.setPlainText("Another draft")
-    assert not new.save_recovery()
-    assert new.workspace_store.drafts_path.read_bytes() == original
-    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Discard)
-    new.discard_retained_recovery()
-    assert new.workspace_store.recovery()["songs"][0]["draft"]["lyrics"] == "Another draft"
-    assert not new._recovery_suspended
-
-
-def test_corrupt_recovery_is_kept_until_explicit_discard(qtbot, tmp_path, monkeypatch):
-    window = MainWindow(Settings(cache_directory=str(tmp_path / "cache")))
-    qtbot.addWidget(window)
-    window.workspace_store.directory.mkdir(parents=True)
-    broken = b'{"version":1,"songs":[{"path":3}]}'
-    window.workspace_store.drafts_path.write_bytes(broken)
-    errors = []
-    monkeypatch.setattr(window, "error", errors.append)
-    window.offer_recovery()
-    assert errors and "Malformed" in errors[0]
-    assert not window.save_recovery()
-    assert window.workspace_store.drafts_path.read_bytes() == broken
-
-
-def test_failed_restore_remains_in_recovery(qtbot, mp3, tmp_path, monkeypatch):
-    old = timed_window(qtbot, mp3, tmp_path)
-    old.save_recovery()
-    old.recovery_timer.stop()
-    data = old.workspace_store.recovery()
-    data["songs"][0]["hash"] = "different file"
-    old.workspace_store.drafts_path.write_text(json.dumps(data))
-    new = MainWindow(old.settings)
-    qtbot.addWidget(new)
-    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
-    new.offer_recovery()
-    qtbot.waitUntil(lambda: new.job is None and bool(new._unrestored_drafts))
-    assert not new.sessions
-    new.save_recovery()
-    assert new.workspace_store.recovery()["songs"] == data["songs"]
-
-
 def test_pending_text_survives_an_unrelated_undo(qtbot, mp3, tmp_path):
     window = timed_window(qtbot, mp3, tmp_path)
     window.lyrics_editor.setPlainText("Pending new lyrics")
@@ -396,13 +303,13 @@ def test_import_rechecks_source_file_identity(mp3, tmp_path):
 
 def test_disposable_cache_cleanup_preserves_user_work(tmp_path):
     cache = Cache(tmp_path)
-    for category in ("alignment", "waveform", "saved_timings", "models", "recovery"):
+    for category in ("alignment", "waveform", "saved_timings", "models"):
         cache.put(category, {"test": 1}, {"data": "keep or dispose"})
     inventory = disposable_inventory(tmp_path, JobContext())
     assert set(inventory) == {"alignment", "waveform"}
     assert clear_disposable(tmp_path, inventory, ["alignment"], JobContext()) == 1
     assert cache.get("alignment", {"test": 1}) is None
-    for category in ("waveform", "saved_timings", "models", "recovery"):
+    for category in ("waveform", "saved_timings", "models"):
         assert cache.get(category, {"test": 1}) is not None
     with pytest.raises(ValueError, match="protected"):
         clear_disposable(tmp_path, inventory, ["saved_timings"], JobContext())

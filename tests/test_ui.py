@@ -295,6 +295,11 @@ def test_closing_checks_unsaved_songs_even_when_selected_song_is_clean(
     questions = []
 
     def ask(dialog):
+        from PySide6.QtWidgets import QPushButton
+
+        assert {button.text() for button in dialog.findChildren(QPushButton)} == {
+            "Save selected", "Discard edits", "Cancel"
+        }
         questions.extend(check.text() for check in dialog.findChildren(QCheckBox))
         return QDialog.DialogCode.Rejected
 

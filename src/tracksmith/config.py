@@ -14,7 +14,7 @@ def config_path() -> Path:
 
 
 def storage_directory(variable: str, fallback: str) -> str:
-    """Keep existing drafts, models and timings reachable after the app rename."""
+    """Keep existing preferences, models and timings reachable after the app rename."""
     root = Path(os.environ.get(variable, Path.home() / fallback))
     current = root / "tracksmith"
     legacy = root / "song-metadata-enricher"
@@ -54,7 +54,7 @@ class Settings:
         if not self.cache_directory:
             raise ValueError("Cache directory cannot be empty")
         if not self.workspace_directory:
-            raise ValueError("Draft and corrected timing directory cannot be empty")
+            raise ValueError("Application data directory cannot be empty")
         self.cache_directory = str(Path(self.cache_directory).expanduser())
         self.workspace_directory = str(Path(self.workspace_directory).expanduser())
         if self.device not in {"cpu", "auto", "rocm"}:

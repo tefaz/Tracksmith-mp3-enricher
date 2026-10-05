@@ -1,4 +1,4 @@
-"""Rich timing snapshots supplement the line-only ID3 representation."""
+"""Rich timing snapshots and portable projects supplement embedded ID3 timing data."""
 
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ def evenly_spaced_words(text: str, start: float, end: float, duration: float) ->
 
 
 def generate_timing_json(track: Track) -> str:
-    """Lossless portable word/line data; plain LRC and current SYLT are line-only."""
+    """Lossless portable editing data; ordinary LRC retains line starts only."""
     from .workspace import encode_artwork
 
     return (
@@ -190,7 +190,7 @@ def restore_timing_state(track: Track, cache: Cache) -> bool:
 
 
 def validate_lines(data, duration: float) -> list[LyricLine]:
-    """Validate imported/recovered data completely before mutating a working track."""
+    """Validate imported/embedded data completely before mutating a working track."""
     if not isinstance(data, list) or len(data) > 100000:
         raise ValueError("Timing data must contain a bounded list of lyric lines")
     lines = []
