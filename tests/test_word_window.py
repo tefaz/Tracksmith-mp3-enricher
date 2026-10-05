@@ -4,9 +4,9 @@ import pytest
 from PySide6.QtMultimedia import QMediaPlayer
 from test_ui import window_for
 
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.timing_data import word_timing_window
-from song_metadata_enricher.timing_editor import WordTimingDialog
+from tracksmith.model import LyricLine, Word
+from tracksmith.timing_data import word_timing_window
+from tracksmith.timing_editor import WordTimingDialog
 
 
 def test_untimed_second_line_infers_celine_example_window():

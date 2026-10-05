@@ -8,12 +8,12 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QTimer
 
-from song_metadata_enricher import alignment_process
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.jobs import JobContext
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.ui import MainWindow
+from tracksmith import alignment_process
+from tracksmith.config import Settings
+from tracksmith.jobs import JobContext
+from tracksmith.model import LyricLine, Word
+from tracksmith.tags import read_track
+from tracksmith.ui import MainWindow
 
 
 def fake_child(monkeypatch, source):
@@ -86,7 +86,7 @@ ctypes.PyDLL(None).sleep(30)
 def test_download_reports_real_cache_bytes(tmp_path, monkeypatch):
     import huggingface_hub
 
-    from song_metadata_enricher.alignment import download_ctc_model
+    from tracksmith.alignment import download_ctc_model
 
     info = SimpleNamespace(
         sha="revision",
@@ -157,7 +157,7 @@ ctypes.PyDLL(None).sleep(30)
 
 
 def test_native_cpu_work_reports_activity_and_remains_cancelable(mp3, tmp_path, monkeypatch):
-    from song_metadata_enricher.jobs import Cancelled
+    from tracksmith.jobs import Cancelled
 
     track = read_track(mp3)
     processes = fake_child(

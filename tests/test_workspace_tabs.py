@@ -6,9 +6,9 @@ from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QApplication
 from test_ui import window_for
 
-from song_metadata_enricher.model import LyricLine
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.theme import apply_theme
+from tracksmith.model import LyricLine
+from tracksmith.tags import read_track
+from tracksmith.theme import apply_theme
 
 
 @pytest.mark.parametrize("variant", ["dark", "light"])

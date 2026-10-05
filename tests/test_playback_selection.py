@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QAbstractItemView
 from test_stamping import stamping_window
 
-from song_metadata_enricher.theme import timing_selection_color
+from tracksmith.theme import timing_selection_color
 
 
 def assert_one_target(window):
@@ -191,7 +191,7 @@ def test_starting_playback_closes_a_paused_cell_editor(qtbot, mp3, tmp_path):
 def test_words_cell_opens_clicked_line_paused_or_playing(qtbot, mp3, tmp_path, monkeypatch):
     from PySide6.QtWidgets import QDialog
 
-    from song_metadata_enricher.timing_editor import WordTimingDialog
+    from tracksmith.timing_editor import WordTimingDialog
 
     window = stamping_window(qtbot, mp3, tmp_path)
     opened = []

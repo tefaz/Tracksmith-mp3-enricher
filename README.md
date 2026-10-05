@@ -42,10 +42,10 @@ sudo pacman -S chromaprint
 You can also run `./start.sh` (uses this folder's `.venv`) or open a file directly:
 
 ```bash
-python -m song_metadata_enricher /path/to/song.mp3
+python -m tracksmith /path/to/song.mp3
 ```
 
-The included `.desktop` launcher uses absolute paths; update its `Exec`, `TryExec`, `Path` and `Icon` entries for your checkout before installing it in your application menu.
+The included `tracksmith.desktop` launcher uses absolute paths; update its `Exec`, `TryExec`, `Path` and `Icon` entries for your checkout before installing it in your application menu.
 
 ### Optional automatic timing
 
@@ -76,9 +76,11 @@ Opening a song is read-only. Manual work requires no account or network connecti
 ## Storage and online services
 
 - **Inside the MP3:** metadata, artwork, plain lyrics (USLT) and line starts (SYLT), saved as ID3v2.4 without re-encoding audio. Saves create no permanent companion files or backups.
-- **Application data:** corrected word timings, review state and recovery drafts live separately under `~/.local/share/song-metadata-enricher` by default. JSON projects carry this richer state without duplicating audio.
-- **Settings:** `~/.config/song-metadata-enricher/settings.json`.
-- **Disposable caches and logs:** `~/.cache/song-metadata-enricher`; use **Tools → Manage disposable caches** to clean cached results while keeping recovery and corrected timings.
+- **Application data:** corrected word timings, review state and recovery drafts live separately under `~/.local/share/tracksmith` by default. JSON projects carry this richer state without duplicating audio.
+- **Settings:** `~/.config/tracksmith/settings.json`.
+- **Disposable caches and logs:** `~/.cache/tracksmith`; use **Tools → Manage disposable caches** to clean cached results while keeping recovery and corrected timings.
+
+Existing installations retain access to legacy `song-metadata-enricher` storage and embedded lyric tags. Settings load from the old location when needed and are subsequently saved under `tracksmith`; existing custom storage locations remain in use.
 
 Paths follow `XDG_DATA_HOME`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME`; some locations are configurable in Settings.
 

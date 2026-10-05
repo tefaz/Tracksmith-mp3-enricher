@@ -3,10 +3,10 @@ from pathlib import Path
 import pytest
 from mutagen.id3 import APIC, COMM, ID3, SYLT, TXXX, USLT
 
-from song_metadata_enricher.cache import file_hash
-from song_metadata_enricher.jobs import Cancelled, JobContext
-from song_metadata_enricher.model import Artwork, LyricLine
-from song_metadata_enricher.tags import compressed_audio_hash, read_track, save_track
+from tracksmith.cache import file_hash
+from tracksmith.jobs import Cancelled, JobContext
+from tracksmith.model import Artwork, LyricLine
+from tracksmith.tags import compressed_audio_hash, read_track, save_track
 
 
 def test_read_is_non_mutating_and_state(mp3):
@@ -105,7 +105,7 @@ def test_external_change_rejected(mp3):
 
 
 def test_verification_failure_keeps_original(mp3, monkeypatch):
-    from song_metadata_enricher import tags
+    from tracksmith import tags
 
     track = read_track(mp3)
     track.proposed_metadata.title = "New"
@@ -170,7 +170,7 @@ def test_repeated_default_saves_embed_tags_without_companion_files(mp3):
 
 
 def test_replacement_failure_keeps_original_and_cleans_temporary(mp3, monkeypatch):
-    from song_metadata_enricher import tags
+    from tracksmith import tags
 
     original_files = set(mp3.parent.iterdir())
     original = mp3.read_bytes()

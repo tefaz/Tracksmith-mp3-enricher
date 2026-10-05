@@ -5,9 +5,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtMultimedia import QMediaPlayer
 from test_ui import window_for
 
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.timing_data import pending_line_at
+from tracksmith.model import LyricLine, Word
+from tracksmith.tags import read_track
+from tracksmith.timing_data import pending_line_at
 
 
 def test_pending_target_is_missing_line_between_audio_anchors():

@@ -5,13 +5,13 @@ from PIL import Image
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QDialog
 
-from song_metadata_enricher.artwork_dialog import ArtworkDialog
-from song_metadata_enricher.cache import file_hash
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.dialogs import MetadataProposalDialog
-from song_metadata_enricher.model import Artwork, Candidate, Metadata
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.ui import MainWindow
+from tracksmith.artwork_dialog import ArtworkDialog
+from tracksmith.cache import file_hash
+from tracksmith.config import Settings
+from tracksmith.dialogs import MetadataProposalDialog
+from tracksmith.model import Artwork, Candidate, Metadata
+from tracksmith.tags import read_track
+from tracksmith.ui import MainWindow
 
 
 @pytest.fixture(autouse=True)
@@ -94,7 +94,7 @@ def test_missing_cover_shows_error_and_allows_metadata_only(qtbot):
 
 
 def test_selected_artwork_appears_in_main_window_without_saving(qtbot, mp3, tmp_path, monkeypatch):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = MainWindow(Settings(cache_directory=str(tmp_path)))
     qtbot.addWidget(window)
@@ -123,7 +123,7 @@ def test_selected_artwork_appears_in_main_window_without_saving(qtbot, mp3, tmp_
 
 
 def test_metadata_release_selection_also_applies_cover(qtbot, mp3, tmp_path, monkeypatch):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = MainWindow(Settings(cache_directory=str(tmp_path)))
     qtbot.addWidget(window)
@@ -256,7 +256,7 @@ def test_closing_chooser_stops_prefetch_and_cancels_running_requests(qtbot):
 def test_metadata_search_uses_one_chooser_with_all_recordings_and_covers(
     qtbot, mp3, tmp_path, monkeypatch
 ):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = MainWindow(Settings(cache_directory=str(tmp_path)))
     qtbot.addWidget(window)
@@ -307,7 +307,7 @@ def test_metadata_search_uses_one_chooser_with_all_recordings_and_covers(
 def test_find_cover_replaces_stale_suggestions_with_fresh_matches(
     qtbot, mp3, tmp_path, monkeypatch
 ):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = MainWindow(Settings(cache_directory=str(tmp_path)))
     qtbot.addWidget(window)
@@ -331,7 +331,7 @@ def test_find_cover_replaces_stale_suggestions_with_fresh_matches(
 
 
 def test_cover_search_uses_remembered_choices_when_offline(qtbot, mp3, tmp_path, monkeypatch):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = MainWindow(Settings(cache_directory=str(tmp_path)))
     qtbot.addWidget(window)
@@ -350,7 +350,7 @@ def test_cover_search_uses_remembered_choices_when_offline(qtbot, mp3, tmp_path,
 
 
 def test_metadata_only_choice_preserves_existing_cover(qtbot, mp3, tmp_path, monkeypatch):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = MainWindow(Settings(cache_directory=str(tmp_path)))
     qtbot.addWidget(window)
@@ -378,7 +378,7 @@ def test_metadata_only_choice_preserves_existing_cover(qtbot, mp3, tmp_path, mon
 
 
 def test_accepted_cover_is_kept_if_extra_release_details_fail(qtbot, mp3, tmp_path, monkeypatch):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = MainWindow(Settings(cache_directory=str(tmp_path)))
     qtbot.addWidget(window)

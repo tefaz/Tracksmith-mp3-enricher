@@ -6,11 +6,11 @@ import logging
 from dataclasses import asdict
 from pathlib import Path
 
-from song_metadata_enricher.alignment_process import run_alignment
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.jobs import JobContext
-from song_metadata_enricher.lyrics import generate_lrc, split_lyrics
-from song_metadata_enricher.tags import read_track
+from tracksmith.alignment_process import run_alignment
+from tracksmith.config import Settings
+from tracksmith.jobs import JobContext
+from tracksmith.lyrics import generate_lrc, split_lyrics
+from tracksmith.tags import read_track
 
 
 def main():

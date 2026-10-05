@@ -10,4 +10,4 @@ if [[ ! -x "$python_executable" ]]; then
 fi
 
 cd -- "$project_dir"
-exec "$python_executable" -m song_metadata_enricher "$@"
+exec "$python_executable" -m tracksmith "$@"

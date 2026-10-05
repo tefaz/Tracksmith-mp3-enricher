@@ -12,8 +12,8 @@ import pytest
 def isolated_workspace(monkeypatch, tmp_path, qtbot):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    from song_metadata_enricher.timing_editor import WordTimingDialog
-    from song_metadata_enricher.ui import MainWindow
+    from tracksmith.timing_editor import WordTimingDialog
+    from tracksmith.ui import MainWindow
 
     monkeypatch.setattr(WordTimingDialog, "confirm_discard", lambda self: True)
     original_init = MainWindow.__init__
@@ -24,7 +24,7 @@ def isolated_workspace(monkeypatch, tmp_path, qtbot):
 
     monkeypatch.setattr(MainWindow, "__init__", test_window_init)
     yield
-    from song_metadata_enricher.ui import MainWindow
+    from tracksmith.ui import MainWindow
 
     monkeypatch.setattr(MainWindow, "confirm_discard", lambda self: True)
 

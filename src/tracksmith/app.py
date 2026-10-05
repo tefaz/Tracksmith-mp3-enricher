@@ -38,7 +38,7 @@ def main():
     app = QApplication(sys.argv[:1])
     app.setApplicationName("Tracksmith")
     app.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "app-icon.png")))
-    app.setDesktopFileName("song-metadata-enricher")
+    app.setDesktopFileName("tracksmith")
     app.setOrganizationName("Tracksmith")
     apply_theme(app)
     try:

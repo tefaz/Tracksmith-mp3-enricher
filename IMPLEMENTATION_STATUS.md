@@ -1,6 +1,6 @@
 # UI/UX implementation status
 
-The user approved the full [suggested-improvement.md](suggested-improvement.md) backlog. Changes were made in `src/song_metadata_enricher`; generated `build/lib` files were not edited. The app still opens music read-only and saves only through its existing explicit, verified, atomic MP3 write path.
+The user approved the full [suggested-improvement.md](suggested-improvement.md) backlog. Changes were made in `src/tracksmith`; generated `build/lib` files were not edited. The app still opens music read-only and saves only through its existing explicit, verified, atomic MP3 write path.
 
 | Scope | Implemented behavior |
 | --- | --- |
@@ -25,8 +25,8 @@ The user approved the full [suggested-improvement.md](suggested-improvement.md) 
 
 ## Storage and migration
 
-- Settings: `$XDG_CONFIG_HOME/song-metadata-enricher/settings.json`.
-- Recovery, presentation and corrected timing snapshots: `workspace_directory`, defaulting to `$XDG_DATA_HOME/song-metadata-enricher` (`~/.local/share/song-metadata-enricher`).
+- Settings: `$XDG_CONFIG_HOME/tracksmith/settings.json`.
+- Recovery, presentation and corrected timing snapshots: `workspace_directory`, defaulting to `$XDG_DATA_HOME/tracksmith` (`~/.local/share/tracksmith`).
 - Existing valid corrected-timing snapshots are read from the legacy cache and copied to protected storage when opened. Automatic cleanup excludes legacy snapshots and model weights too.
 - Portable projects reference the MP3's exact content hash/duration; they include artwork but do not duplicate audio. Load a relocated byte-identical MP3 before importing. Different edits and externally modified files are rejected, leaving the current draft unchanged.
 - Review flags do not modify model support or unchanged word provenance. Intentional exclusions retain plain lyrics but leave synchronized outputs and review queues.

@@ -5,9 +5,9 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtMultimedia import QMediaPlayer
 from test_ui import window_for
 
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.timing_data import evenly_spaced_words, next_line_start
-from song_metadata_enricher.timing_editor import WordTimingDialog
+from tracksmith.model import LyricLine, Word
+from tracksmith.timing_data import evenly_spaced_words, next_line_start
+from tracksmith.timing_editor import WordTimingDialog
 
 
 def test_equal_spacing_preserves_words_and_marks_estimates():
@@ -184,9 +184,9 @@ def test_chart_click_seeks_without_altering_rectangles(qtbot, mp3, tmp_path):
 def test_estimated_sources_survive_save_cache_restore_and_json(mp3, tmp_path):
     import json
 
-    from song_metadata_enricher.cache import Cache
-    from song_metadata_enricher.tags import read_track, save_track
-    from song_metadata_enricher.timing_data import (
+    from tracksmith.cache import Cache
+    from tracksmith.tags import read_track, save_track
+    from tracksmith.timing_data import (
         generate_timing_json,
         restore_timing_state,
         store_timing_state,

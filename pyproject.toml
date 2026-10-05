@@ -15,14 +15,13 @@ ai = ["openai-whisper>=20250625", "transformers>=4.45,<5", "torch>=2.5", "soundf
 separation = ["demucs>=4.0.1", "soundfile>=0.12"]
 
 [project.scripts]
-tracksmith = "song_metadata_enricher.app:main"
-song-metadata-enricher = "song_metadata_enricher.app:main"
+tracksmith = "tracksmith.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-song_metadata_enricher = ["assets/*.svg", "assets/*.png"]
+tracksmith = ["assets/*.svg", "assets/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

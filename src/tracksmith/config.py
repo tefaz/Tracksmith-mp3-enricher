@@ -9,14 +9,22 @@ CPU_THREAD_LIMIT = 4
 def config_path() -> Path:
     return (
         Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-        / "song-metadata-enricher/settings.json"
+        / "tracksmith/settings.json"
     )
+
+
+def storage_directory(variable: str, fallback: str) -> str:
+    """Keep existing drafts, models and timings reachable after the app rename."""
+    root = Path(os.environ.get(variable, Path.home() / fallback))
+    current = root / "tracksmith"
+    legacy = root / "song-metadata-enricher"
+    return str(legacy if not current.exists() and legacy.exists() else current)
 
 
 @dataclass
 class Settings:
-    cache_directory: str = str(
-        Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "song-metadata-enricher"
+    cache_directory: str = field(
+        default_factory=lambda: storage_directory("XDG_CACHE_HOME", ".cache")
     )
     lyrics_provider: str = "lrclib"
     metadata_provider: str = "musicbrainz"
@@ -29,10 +37,7 @@ class Settings:
     confidence_threshold: float = 0.8
     acoustid_key: str = ""
     workspace_directory: str = field(
-        default_factory=lambda: str(
-            Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
-            / "song-metadata-enricher"
-        )
+        default_factory=lambda: storage_directory("XDG_DATA_HOME", ".local/share")
     )
 
     def __post_init__(self):
@@ -57,7 +62,12 @@ class Settings:
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Settings":
-        path = path or config_path()
+        if path is None:
+            path = config_path()
+            if not path.exists():
+                legacy = path.parent.parent / "song-metadata-enricher/settings.json"
+                if legacy.exists():
+                    path = legacy
         if not path.exists():
             return cls()
         data = json.loads(path.read_text())

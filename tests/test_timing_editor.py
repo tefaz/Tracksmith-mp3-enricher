@@ -7,12 +7,12 @@ from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QDialog, QFileDialog
 from test_ui import window_for
 
-from song_metadata_enricher.dialogs import SaveReviewDialog
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.theme import timing_selection_color
-from song_metadata_enricher.timing_data import generate_timing_json
-from song_metadata_enricher.timing_editor import WordTimingDialog
+from tracksmith.dialogs import SaveReviewDialog
+from tracksmith.model import LyricLine, Word
+from tracksmith.tags import read_track
+from tracksmith.theme import timing_selection_color
+from tracksmith.timing_data import generate_timing_json
+from tracksmith.timing_editor import WordTimingDialog
 
 
 def ready_player(qtbot, window):
@@ -222,9 +222,9 @@ def test_word_data_export_and_mp3_save_keep_in_memory_words(qtbot, mp3, tmp_path
 
 
 def test_saved_timing_cache_rejects_changes_and_bad_word_spans(mp3, tmp_path):
-    from song_metadata_enricher.cache import Cache
-    from song_metadata_enricher.tags import save_track
-    from song_metadata_enricher.timing_data import restore_timing_state, store_timing_state
+    from tracksmith.cache import Cache
+    from tracksmith.tags import save_track
+    from tracksmith.timing_data import restore_timing_state, store_timing_state
 
     track = read_track(mp3)
     track.display_lyrics = "Hello world\nMissing"
@@ -257,9 +257,9 @@ def test_saved_timing_cache_rejects_changes_and_bad_word_spans(mp3, tmp_path):
 
 
 def test_saved_word_corrections_survive_cache_write_failure(qtbot, mp3, tmp_path, monkeypatch):
-    import song_metadata_enricher.ui as ui
-    from song_metadata_enricher.cache import Cache
-    from song_metadata_enricher.timing_data import store_timing_state
+    import tracksmith.ui as ui
+    from tracksmith.cache import Cache
+    from tracksmith.timing_data import store_timing_state
 
     window = window_for(qtbot, mp3, tmp_path)
     window.track.display_lyrics = "Hello"

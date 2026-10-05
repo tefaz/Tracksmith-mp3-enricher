@@ -6,14 +6,14 @@ from mutagen.id3 import APIC, ID3, PictureType
 from PIL import Image
 from PySide6.QtWidgets import QDialog
 
-from song_metadata_enricher.batch import CATEGORIES, run_batch
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.cover_batch import BatchCoverProvider, CoverSkipped, original_album
-from song_metadata_enricher.cover_review import CoverReviewDialog
-from song_metadata_enricher.jobs import JobContext
-from song_metadata_enricher.model import Artwork, Candidate, LyricLine, Metadata
-from song_metadata_enricher.tags import compressed_audio_hash, read_track, save_track
-from song_metadata_enricher.ui import MainWindow
+from tracksmith.batch import CATEGORIES, run_batch
+from tracksmith.config import Settings
+from tracksmith.cover_batch import BatchCoverProvider, CoverSkipped, original_album
+from tracksmith.cover_review import CoverReviewDialog
+from tracksmith.jobs import JobContext
+from tracksmith.model import Artwork, Candidate, LyricLine, Metadata
+from tracksmith.tags import compressed_audio_hash, read_track, save_track
+from tracksmith.ui import MainWindow
 
 
 def cover():
@@ -92,7 +92,7 @@ def test_lookup_requires_audio_identity_and_approved_front(mp3, monkeypatch, pro
     track.audio.duration = 40
     http = Http()
     provider = BatchCoverProvider(http, "test-key", fingerprint=True)
-    monkeypatch.setattr("song_metadata_enricher.cover_batch.shutil.which", lambda name: "/bin/fpcalc")
+    monkeypatch.setattr("tracksmith.cover_batch.shutil.which", lambda name: "/bin/fpcalc")
     matches = [Candidate(Metadata(), 0.99, "fingerprint", recording_id="recording")]
     if problem == "weak":
         matches[0].confidence = 0.94
@@ -166,9 +166,9 @@ def test_name_lookup_needs_no_key_and_skips_uncertain_matches(mp3, monkeypatch, 
     def no_fingerprint(*args):
         pytest.fail("Name-based lookup must not use AcoustID or fpcalc")
 
-    monkeypatch.setattr("song_metadata_enricher.cover_batch.MusicBrainzProvider.search", search)
+    monkeypatch.setattr("tracksmith.cover_batch.MusicBrainzProvider.search", search)
     monkeypatch.setattr(provider.identification, "identify", no_fingerprint)
-    monkeypatch.setattr("song_metadata_enricher.cover_batch.shutil.which", no_fingerprint)
+    monkeypatch.setattr("tracksmith.cover_batch.shutil.which", no_fingerprint)
     if problem not in {None, "duplicate_editions"}:
         with pytest.raises(CoverSkipped):
             provider.lookup(track, JobContext())
@@ -267,8 +267,8 @@ def test_cover_batch_category_includes_search_hidden_songs(qtbot, mp3, tmp_path,
     window.song_search.setText("first")
     assert window.song_list.item(1).isHidden()
     provider = CoverProvider()
-    monkeypatch.setattr("song_metadata_enricher.ui.BatchCoverProvider", lambda *args: provider)
-    monkeypatch.setattr("song_metadata_enricher.ui.shutil.which", lambda *args: "/bin/fpcalc")
+    monkeypatch.setattr("tracksmith.ui.BatchCoverProvider", lambda *args: provider)
+    monkeypatch.setattr("tracksmith.ui.shutil.which", lambda *args: "/bin/fpcalc")
     monkeypatch.setattr(QDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
 
     class AcceptingReview(CoverReviewDialog):
@@ -278,7 +278,7 @@ def test_cover_batch_category_includes_search_hidden_songs(qtbot, mp3, tmp_path,
                 self.decide(index, True)
             return QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr("song_metadata_enricher.ui.CoverReviewDialog", AcceptingReview)
+    monkeypatch.setattr("tracksmith.ui.CoverReviewDialog", AcceptingReview)
     window.start_batch("covers")
     assert not window.batch_covers_action.isEnabled()
     qtbot.waitUntil(lambda: window.job is None, timeout=10000)

@@ -5,11 +5,11 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMenu, QMessageBox
 
-from song_metadata_enricher.batch import CATEGORIES, timing_category
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.ui import MainWindow
+from tracksmith.batch import CATEGORIES, timing_category
+from tracksmith.config import Settings
+from tracksmith.model import LyricLine, Word
+from tracksmith.tags import read_track
+from tracksmith.ui import MainWindow
 
 
 def load_category(window, mp3, tmp_path, category, name):
@@ -148,7 +148,7 @@ def test_context_menu_unloads_clicked_song_with_unsaved_prompt(
             assert action.isEnabled()
             return action
 
-    monkeypatch.setattr("song_metadata_enricher.ui.QMenu", ChoosingMenu)
+    monkeypatch.setattr("tracksmith.ui.QMenu", ChoosingMenu)
     prompts = []
 
     def answer(*args):

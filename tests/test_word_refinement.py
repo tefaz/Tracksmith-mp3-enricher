@@ -3,9 +3,9 @@ from copy import deepcopy
 import numpy as np
 import pytest
 
-from song_metadata_enricher.jobs import Cancelled, JobContext
-from song_metadata_enricher.model import Word
-from song_metadata_enricher.word_refinement import refine_starts
+from tracksmith.jobs import Cancelled, JobContext
+from tracksmith.model import Word
+from tracksmith.word_refinement import refine_starts
 
 
 def test_refinement_finds_acoustic_onset_without_moving_line_or_sustained_ends():

@@ -2,9 +2,9 @@ from dataclasses import asdict
 
 import pytest
 
-from song_metadata_enricher.cache import Cache
-from song_metadata_enricher.jobs import JobContext
-from song_metadata_enricher.providers import HttpClient, LRCLibProvider, MusicBrainzProvider
+from tracksmith.cache import Cache
+from tracksmith.jobs import JobContext
+from tracksmith.providers import HttpClient, LRCLibProvider, MusicBrainzProvider
 
 
 class StubHttp:
@@ -239,7 +239,7 @@ def test_musicbrainz_uses_bounded_prefix_fallback():
 
 
 def test_releases_offer_album_and_single():
-    from song_metadata_enricher.model import Candidate, Metadata
+    from tracksmith.model import Candidate, Metadata
 
     http = StubHttp(
         {
@@ -259,7 +259,7 @@ def test_releases_offer_album_and_single():
 
 
 def test_cover_404_is_cached_but_temporary_network_failure_is_not(tmp_path, monkeypatch):
-    from song_metadata_enricher.providers import CoverArtProvider
+    from tracksmith.providers import CoverArtProvider
 
     http = HttpClient(Cache(tmp_path))
     calls = []
@@ -287,8 +287,8 @@ def test_cover_404_is_cached_but_temporary_network_failure_is_not(tmp_path, monk
 
 
 def test_merge_keeps_other_recordings_and_editions_without_duplicate_rows():
-    from song_metadata_enricher.model import Candidate, Metadata
-    from song_metadata_enricher.providers import merge_release_candidates
+    from tracksmith.model import Candidate, Metadata
+    from tracksmith.providers import merge_release_candidates
 
     original = Candidate(Metadata(album="Album"), 0.9, "test", "recording", "release")
     stronger = Candidate(Metadata(album="Album"), 0.95, "test", "recording", "release")

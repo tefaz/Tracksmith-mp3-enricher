@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from song_metadata_enricher.alignment import LocalAlignment, ctc_viterbi, match_passages
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.jobs import JobContext
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.tags import read_track
+from tracksmith.alignment import LocalAlignment, ctc_viterbi, match_passages
+from tracksmith.config import Settings
+from tracksmith.jobs import JobContext
+from tracksmith.model import LyricLine, Word
+from tracksmith.tags import read_track
 
 
 def recognized(text, start):
@@ -113,7 +113,7 @@ def test_singing_is_not_discarded_by_speech_detection(monkeypatch, tmp_path):
     import sys
     from types import SimpleNamespace
 
-    from song_metadata_enricher.alignment import WhisperTranscription
+    from tracksmith.alignment import WhisperTranscription
 
     options = []
 
@@ -147,7 +147,7 @@ def test_singing_is_not_discarded_by_speech_detection(monkeypatch, tmp_path):
 
 
 def test_known_text_grouping_uses_audio_order_and_distinct_repeats():
-    from song_metadata_enricher.alignment import Passage, group_passages
+    from tracksmith.alignment import Passage, group_passages
 
     words = (
         recognized("first chorus words here", 1)
@@ -161,8 +161,8 @@ def test_known_text_grouping_uses_audio_order_and_distinct_repeats():
 
 
 def test_grouped_known_lyrics_keep_boundaries_annotations_and_repeats():
-    from song_metadata_enricher.alignment import Passage, WhisperForcedAligner
-    from song_metadata_enricher.lyrics import alignment_text
+    from tracksmith.alignment import Passage, WhisperForcedAligner
+    from tracksmith.lyrics import alignment_text
 
     lines = [
         LyricLine("Here Comes the Sun (x2)"),
@@ -190,7 +190,7 @@ def test_grouped_known_lyrics_keep_boundaries_annotations_and_repeats():
 
 
 def mock_live_backend(monkeypatch, tmp_path, recognized_words):
-    import song_metadata_enricher.alignment as module
+    import tracksmith.alignment as module
 
     calls = {"decode": 0, "transcribe": 0}
     monkeypatch.setattr(module.importlib.metadata, "version", lambda package: "test")
@@ -251,8 +251,8 @@ def test_successful_cache_is_explicit_and_fresh_analysis_recomputes_audio(
 
 
 def test_refined_alignment_uses_word_pass_without_changing_outer_bounds(monkeypatch):
-    import song_metadata_enricher.word_refinement as refinement
-    from song_metadata_enricher.alignment import Passage, WhisperForcedAligner
+    import tracksmith.word_refinement as refinement
+    from tracksmith.alignment import Passage, WhisperForcedAligner
 
     lines = [LyricLine("Here comes the sun")]
     evidence = recognized("here comes the sun", 1)

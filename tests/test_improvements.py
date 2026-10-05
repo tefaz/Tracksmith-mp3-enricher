@@ -11,24 +11,24 @@ from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 from test_ui import window_for
 
-from song_metadata_enricher.cache import Cache, clear_disposable, disposable_inventory, file_hash
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.dialogs import MetadataProposalDialog, SaveReviewDialog
-from song_metadata_enricher.jobs import Cancelled, JobContext
-from song_metadata_enricher.lyrics import generate_lrc, parse_lrc
-from song_metadata_enricher.model import LyricLine, Metadata, Word, needs_review, review_summary
-from song_metadata_enricher.projects import read_project
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.theme import apply_theme
-from song_metadata_enricher.timing_data import (
+from tracksmith.cache import Cache, clear_disposable, disposable_inventory, file_hash
+from tracksmith.config import Settings
+from tracksmith.dialogs import MetadataProposalDialog, SaveReviewDialog
+from tracksmith.jobs import Cancelled, JobContext
+from tracksmith.lyrics import generate_lrc, parse_lrc
+from tracksmith.model import LyricLine, Metadata, Word, needs_review, review_summary
+from tracksmith.projects import read_project
+from tracksmith.tags import read_track
+from tracksmith.theme import apply_theme
+from tracksmith.timing_data import (
     generate_timing_json,
     parse_timing_project,
     validate_lines,
 )
-from song_metadata_enricher.timing_editor import WordTimingDialog
-from song_metadata_enricher.ui import MainWindow, SettingsDialog
-from song_metadata_enricher.waveform import decode_overview
-from song_metadata_enricher.workspace import apply_state, validated_state
+from tracksmith.timing_editor import WordTimingDialog
+from tracksmith.ui import MainWindow, SettingsDialog
+from tracksmith.waveform import decode_overview
+from tracksmith.workspace import apply_state, validated_state
 
 
 def ready(qtbot, window):

@@ -5,21 +5,21 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDialog
 from test_cover_batch import CoverProvider, cover
 
-from song_metadata_enricher.batch import run_batch
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.cover_batch import (
+from tracksmith.batch import run_batch
+from tracksmith.config import Settings
+from tracksmith.cover_batch import (
     AcceptedCoverProvider,
     BatchCoverProvider,
     CoverProposal,
     CoverSearchResult,
     find_cover_proposals,
 )
-from song_metadata_enricher.cover_review import CoverReviewDialog
-from song_metadata_enricher.jobs import JobContext
-from song_metadata_enricher.model import Candidate, Metadata
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.theme import apply_theme
-from song_metadata_enricher.ui import MainWindow
+from tracksmith.cover_review import CoverReviewDialog
+from tracksmith.jobs import JobContext
+from tracksmith.model import Candidate, Metadata
+from tracksmith.tags import read_track
+from tracksmith.theme import apply_theme
+from tracksmith.ui import MainWindow
 
 
 def proposals(mp3, tmp_path):
@@ -140,10 +140,10 @@ def test_suggestions_allow_fuzzy_names_and_short_clips(mp3, monkeypatch):
         0.81, "Text search", recording_id="r", release_id="edition",
     )
     monkeypatch.setattr(
-        "song_metadata_enricher.cover_batch.MusicBrainzProvider.search_covers",
+        "tracksmith.cover_batch.MusicBrainzProvider.search_covers",
         lambda *args: [candidate],
     )
-    monkeypatch.setattr("song_metadata_enricher.cover_batch.CoverArtProvider.fetch", lambda *args: cover())
+    monkeypatch.setattr("tracksmith.cover_batch.CoverArtProvider.fetch", lambda *args: cover())
     artwork, found = BatchCoverProvider(None).recommend(track, JobContext())
     assert found == candidate
     assert artwork.data == cover().data
@@ -165,7 +165,7 @@ def test_ui_review_saves_only_accepted_or_nothing_on_cancel(qtbot, mp3, tmp_path
             self.decide(1, False)
             return QDialog.DialogCode.Rejected if cancel else QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr("song_metadata_enricher.ui.CoverReviewDialog", ChoosingReview)
+    monkeypatch.setattr("tracksmith.ui.CoverReviewDialog", ChoosingReview)
     window.review_batch_covers(result)
     qtbot.waitUntil(lambda: window.job is None, timeout=10000)
     for i, p in enumerate(result.proposals):

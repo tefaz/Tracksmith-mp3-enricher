@@ -25,7 +25,8 @@ TAG_MAP = {
     "genre": "TCON",
 }
 # Keep the legacy frame identifier so existing embedded lyrics remain compatible.
-DESCRIPTION = "Song Metadata Enricher"
+DESCRIPTION = "Tracksmith"
+LEGACY_DESCRIPTION = "Song Metadata Enricher"
 
 
 def read_track(path: Path, context: JobContext | None = None) -> Track:
@@ -55,7 +56,15 @@ def read_track(path: Path, context: JobContext | None = None) -> Track:
             )
         plain = tags.getall("USLT")
         frame = (
-            min(plain, key=lambda f: (f.desc != DESCRIPTION, f.desc != "", f.lang != "eng"))
+            min(
+                plain,
+                key=lambda f: (
+                    f.desc != DESCRIPTION,
+                    f.desc != LEGACY_DESCRIPTION,
+                    f.desc != "",
+                    f.lang != "eng",
+                ),
+            )
             if plain
             else None
         )
@@ -65,7 +74,12 @@ def read_track(path: Path, context: JobContext | None = None) -> Track:
             track.lyrics_language = frame.lang
         synced = tags.getall("SYLT")
         sync = next(
-            (f for f in synced if f.desc == DESCRIPTION and f.format == 2 and f.type == 1),
+            (
+                f
+                for description in (DESCRIPTION, LEGACY_DESCRIPTION)
+                for f in synced
+                if f.desc == description and f.format == 2 and f.type == 1
+            ),
             next((f for f in synced if f.format == 2 and f.type == 1), None),
         )
         if sync is not None:

@@ -1,16 +1,16 @@
 import pytest
 
-from song_metadata_enricher.cache import Cache, file_hash
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.lyrics import (
+from tracksmith.cache import Cache, file_hash
+from tracksmith.config import Settings
+from tracksmith.lyrics import (
     alignment_text,
     format_timestamp,
     generate_lrc,
     parse_timestamp,
     split_lyrics,
 )
-from song_metadata_enricher.model import LyricLine, active_line
-from song_metadata_enricher.providers import parse_filename, prepare_artwork
+from tracksmith.model import LyricLine, active_line
+from tracksmith.providers import parse_filename, prepare_artwork
 
 
 @pytest.mark.parametrize(
@@ -110,7 +110,7 @@ def test_artwork_resize():
 
 
 def test_timestamp_edit_invalidates_words():
-    from song_metadata_enricher.model import Word
+    from tracksmith.model import Word
 
     line = LyricLine("test", 1, 2, 0.9, "ai", [Word("test", 1, 2)])
     line.set_timestamp(1.234, 4)

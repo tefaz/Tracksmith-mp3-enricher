@@ -5,10 +5,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFileDialog
 from test_ui import window_for
 
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.theme import ToggleSwitch
-from song_metadata_enricher.ui import MainWindow, SettingsDialog
+from tracksmith.config import Settings
+from tracksmith.model import LyricLine, Word
+from tracksmith.theme import ToggleSwitch
+from tracksmith.ui import MainWindow, SettingsDialog
 
 
 def test_welcome_load_and_next_step_follow_lyrics_state(qtbot, mp3, tmp_path, monkeypatch):

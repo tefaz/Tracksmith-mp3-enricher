@@ -2,10 +2,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QCheckBox, QDialog, QFileDialog, QMessageBox
 
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.dialogs import SaveReviewDialog
-from song_metadata_enricher.tags import read_track
-from song_metadata_enricher.ui import MainWindow
+from tracksmith.config import Settings
+from tracksmith.dialogs import SaveReviewDialog
+from tracksmith.tags import read_track
+from tracksmith.ui import MainWindow
 
 
 def window_for(qtbot, mp3, tmp_path):
@@ -130,7 +130,7 @@ def test_ui_save_roundtrip(qtbot, mp3, tmp_path, monkeypatch):
 
 
 def test_real_player_play_pause_seek_and_highlight(qtbot, mp3, tmp_path):
-    from song_metadata_enricher.model import LyricLine
+    from tracksmith.model import LyricLine
 
     window = window_for(qtbot, mp3, tmp_path)
     window.audio_output.setMuted(True)
@@ -153,7 +153,7 @@ def test_real_player_play_pause_seek_and_highlight(qtbot, mp3, tmp_path):
 
 
 def test_song_list_keeps_unsaved_lyrics_metadata_timing_and_release(qtbot, mp3, tmp_path):
-    from song_metadata_enricher.model import Candidate, Metadata
+    from tracksmith.model import Candidate, Metadata
 
     window = window_for(qtbot, mp3, tmp_path)
     first = window.track
@@ -255,7 +255,7 @@ def test_closing_checks_unsaved_songs_even_when_selected_song_is_clean(
 def test_progress_explains_stage_activity_and_possible_stall(qtbot, mp3, tmp_path, monkeypatch):
     from types import SimpleNamespace
 
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     window = window_for(qtbot, mp3, tmp_path)
     clock = [100.0]
@@ -298,7 +298,7 @@ def test_progress_explains_stage_activity_and_possible_stall(qtbot, mp3, tmp_pat
 
 
 def test_analysis_summary_remains_visible_and_export_is_explained(qtbot, mp3, tmp_path):
-    from song_metadata_enricher.model import LyricLine
+    from tracksmith.model import LyricLine
 
     window = window_for(qtbot, mp3, tmp_path)
     window.apply_alignment([LyricLine("Missing"), LyricLine("Timed", 1, 2, 0.95, "ai")])
@@ -316,8 +316,8 @@ def test_analysis_summary_remains_visible_and_export_is_explained(qtbot, mp3, tm
 def test_cached_analysis_is_labelled_and_fresh_action_bypasses_it(
     qtbot, mp3, tmp_path, monkeypatch
 ):
-    import song_metadata_enricher.ui as ui
-    from song_metadata_enricher.model import LyricLine
+    import tracksmith.ui as ui
+    from tracksmith.model import LyricLine
 
     window = window_for(qtbot, mp3, tmp_path)
     window.lyrics_editor.setPlainText("Known words")

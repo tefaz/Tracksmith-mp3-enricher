@@ -5,23 +5,23 @@ from threading import Event
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog
 
-from song_metadata_enricher.batch import (
+from tracksmith.batch import (
     CATEGORIES,
     best_lyrics,
     folder_mp3s,
     run_batch,
     timing_category,
 )
-from song_metadata_enricher.config import Settings
-from song_metadata_enricher.jobs import JobContext
-from song_metadata_enricher.model import LyricLine, Word
-from song_metadata_enricher.providers import LyricsCandidate
-from song_metadata_enricher.tags import read_track, save_track
-from song_metadata_enricher.ui import MainWindow
+from tracksmith.config import Settings
+from tracksmith.jobs import JobContext
+from tracksmith.model import LyricLine, Word
+from tracksmith.providers import LyricsCandidate
+from tracksmith.tags import read_track, save_track
+from tracksmith.ui import MainWindow
 
 
 def test_folder_progress_is_overall_and_elapsed_keeps_ticking(qtbot, mp3, tmp_path, monkeypatch):
-    import song_metadata_enricher.ui as ui
+    import tracksmith.ui as ui
 
     copyfile(mp3, tmp_path / "second.mp3")
 
@@ -121,7 +121,7 @@ def test_batch_embeds_lyrics_and_timings(mp3, monkeypatch):
     assert saved.display_lyrics == "First line\nSecond line"
     assert timing_category(saved) == CATEGORIES[1]
     monkeypatch.setattr(
-        "song_metadata_enricher.batch.run_alignment",
+        "tracksmith.batch.run_alignment",
         lambda *args: [LyricLine("First line", 0.3), LyricLine("Second line")],
     )
     result = run_batch([saved], "timing", Settings(), None, JobContext())
@@ -186,7 +186,7 @@ def test_folder_and_ui_batch(qtbot, mp3, tmp_path, monkeypatch):
     assert window.category_filter.count() == 5
     window.category_filter.setCurrentIndex(1)
     assert all(not window.song_list.item(i).isHidden() for i in range(2))
-    monkeypatch.setattr("song_metadata_enricher.ui.LRCLibProvider", lambda http: Provider())
+    monkeypatch.setattr("tracksmith.ui.LRCLibProvider", lambda http: Provider())
     monkeypatch.setattr(QDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
     window.start_batch("lyrics")
     qtbot.waitUntil(lambda: window.job is None, timeout=10000)
@@ -194,7 +194,7 @@ def test_folder_and_ui_batch(qtbot, mp3, tmp_path, monkeypatch):
     assert all(not session.track.dirty for session in window.sessions)
     window.category_filter.setCurrentIndex(2)
     monkeypatch.setattr(
-        "song_metadata_enricher.batch.run_alignment",
+        "tracksmith.batch.run_alignment",
         lambda *args: [LyricLine("First line", 0.3), LyricLine("Second line")],
     )
     window.start_batch("timing")
