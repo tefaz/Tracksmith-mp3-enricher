@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Tracksmith
+Comment=Edit MP3 metadata and synchronize lyrics to your local audio
+Exec="/home/mads/Projects/Tracksmith-mp3-enricher/start.sh" %f
+TryExec=/home/mads/Projects/Tracksmith-mp3-enricher/start.sh
+Path=/home/mads/Projects/Tracksmith-mp3-enricher
+Icon=/home/mads/Projects/Tracksmith-mp3-enricher/src/song_metadata_enricher/assets/app-icon.png
+Terminal=false
+StartupNotify=true
+Categories=AudioVideo;Audio;
+MimeType=audio/mpeg;

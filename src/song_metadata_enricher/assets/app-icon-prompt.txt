@@ -1,0 +1,3 @@
+Use case: logo-brand. Asset type: square desktop application icon for a music metadata and lyrics editor. Primary request: a square inside a square, with a music note centered in the middle. Design one polished minimal geometric icon: dark charcoal outer rounded square tile, smaller inset square outlined in bright mint green, and a bold clear mint green single musical eighth note centered inside. Flat graphic, crisp clean edges, balanced symmetrical margins, high contrast, readable at 32 pixels. Entire icon centered, large in a square canvas. Transparent outside the outer tile. No text, no letters, no extra objects, no perspective, no mockup, no watermark.
+
+Generated with the built-in image_gen tool.
