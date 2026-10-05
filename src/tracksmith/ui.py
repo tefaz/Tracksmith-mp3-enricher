@@ -833,6 +833,14 @@ class MainWindow(QMainWindow):
         self.file_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         title.addWidget(self.file_label)
         heading.addLayout(title, 1)
+        self.dark_mode_toggle = ToggleSwitch("Dark mode")
+        self.dark_mode_toggle.setAccessibleName("Dark mode")
+        self.dark_mode_toggle.setToolTip("Switch between light and dark mode")
+        self.dark_mode_toggle.setChecked(
+            QApplication.instance().palette().base().color().lightness() < 128
+        )
+        self.dark_mode_toggle.toggled.connect(self.toggle_dark_mode)
+        heading.addWidget(self.dark_mode_toggle, 0, Qt.AlignmentFlag.AlignTop)
         layout.addLayout(heading)
 
         self.workspace_stack = QStackedWidget()
@@ -998,10 +1006,12 @@ class MainWindow(QMainWindow):
         player_card, player_box = card()
         player_layout = QHBoxLayout()
         self.play_button = tone(
-            self._button("▶  Play", self.toggle_play, player_layout), "positive"
+            self._button("▶  Play (space)", self.toggle_play, player_layout), "positive"
         )
         self.play_button.setMinimumWidth(98)
         self.play_button.setToolTip("Play or pause · Space")
+        self.stop_button = self._button("■  Stop (backspace)", self.stop_playback, player_layout)
+        self.stop_button.setToolTip("Stop and return to the beginning · Backspace")
         self.position_label = label("00:00.000 / 00:00.000")
         self.position_label.setMinimumWidth(178)
         self.timeline = QSlider(Qt.Orientation.Horizontal)
@@ -1130,8 +1140,16 @@ class MainWindow(QMainWindow):
         self.stamp_button.setToolTip(
             "Stamp the untimed line shown above. Existing timestamps are protected."
         )
-        self.unmatch_button = tone(self._button("Clear time", self.unmatch_line, editing), "quiet")
+        self.unmatch_button = tone(
+            self._button("Clear time (Del)", self.unmatch_line, editing), "quiet"
+        )
         self.unmatch_button.setToolTip("Clear the selected line’s timing · Delete")
+        self.clear_all_times_button = tone(
+            self._button("Clear all", self.clear_all_timings, editing), "quiet"
+        )
+        self.clear_all_times_button.setToolTip(
+            "Clear all line and word timings for this song. Undo is available."
+        )
         editing.addStretch()
         timing_layout.addLayout(editing)
         self.splitter.addWidget(timing_panel)
@@ -1287,12 +1305,6 @@ class MainWindow(QMainWindow):
         self.redo_action.setStatusTip("Ctrl+Shift+Z while the timing table has focus")
         tools.addAction("Edit lookup terms", self.edit_search_hints)
         view = self.menuBar().addMenu("View")
-        self.dark_mode_action = view.addAction("Dark mode")
-        self.dark_mode_action.setCheckable(True)
-        self.dark_mode_action.setChecked(
-            QApplication.instance().palette().base().color().lightness() < 128
-        )
-        self.dark_mode_action.toggled.connect(self.toggle_dark_mode)
         view.addAction("Activity", self.show_activity)
         view.addAction("Song details", lambda: self.focus_section("details"))
         view.addAction("Lyrics and timing", lambda: self.focus_section("lyrics"))
@@ -1327,6 +1339,7 @@ class MainWindow(QMainWindow):
             widget.setEnabled(loaded and idle)
         self.cover_button.setEnabled(loaded and idle)
         self.play_button.setEnabled(loaded)
+        self.stop_button.setEnabled(loaded)
         self.timeline.setEnabled(loaded)
         self.open_action.setEnabled(idle)
         self.load_button.setEnabled(idle)
@@ -1432,6 +1445,16 @@ class MainWindow(QMainWindow):
             selected and not self.is_playing() and not self._lyrics_pending
         )
         self.unmatch_button.setEnabled(selected and not self.is_playing())
+        self.clear_all_times_button.setEnabled(
+            self.track is not None
+            and self.job is None
+            and not self._lyrics_pending
+            and not self.is_playing()
+            and any(
+                line.start is not None or line.end is not None or line.words
+                for line in self.track.aligned_lines
+            )
+        )
         session = self.current_session()
         if hasattr(self, "undo_action"):
             self.undo_action.setEnabled(self.job is None and bool(session and session.history))
@@ -2336,6 +2359,10 @@ class MainWindow(QMainWindow):
         else:
             self.player.play()
 
+    def stop_playback(self):
+        if self.track:
+            self.player.stop()
+
     @Slot(int)
     def duration_changed(self, duration):
         self.timeline.setMaximum(duration)
@@ -2394,7 +2421,7 @@ class MainWindow(QMainWindow):
 
     def playback_state_changed(self, state):
         playing = state == QMediaPlayer.PlaybackState.PlayingState
-        self.play_button.setText("Ⅱ  Pause" if playing else "▶  Play")
+        self.play_button.setText("Ⅱ  Pause (space)" if playing else "▶  Play (space)")
         self.table.set_playback_locked(playing)
         self.review_filter.setEnabled(self.track is not None and self.job is None and not playing)
         self.position_changed(self.player.position())
@@ -2572,6 +2599,29 @@ class MainWindow(QMainWindow):
             return
         self._set_selected(None)
 
+    def clear_all_timings(self):
+        if not self.track or self.job or self._lyrics_pending:
+            return
+        if self.is_playing():
+            self.explain_selection_lock()
+            return
+        before = self.edit_snapshot()
+        count = 0
+        for line in self.track.aligned_lines:
+            if line.start is not None or line.end is not None or line.words:
+                count += 1
+                excluded = line.excluded
+                line.set_timestamp(None, self.track.audio.duration)
+                line.excluded = excluded
+        if not count:
+            return
+        self.record_change("clear all timings", before)
+        self.render_table()
+        self._title()
+        self.statusBar().showMessage(
+            "Cleared all line and word timings for this song. Undo is available.", 8000
+        )
+
     @staticmethod
     def has_automatic_words(line):
         return bool(line.words) and all(word.source in {"ai", "estimated"} for word in line.words)
@@ -2670,17 +2720,20 @@ class MainWindow(QMainWindow):
             if event.type() == QEvent.Type.KeyPress and not event.isAutoRepeat():
                 self.unmatch_button.click()
             return True
-        # Reserve Space for playback across the main window, including focused
-        # buttons and switches. Text editors still need spaces for typing.
+        # Playback shortcuts work across the main window, including focused
+        # buttons and switches. Text editors retain their typing behavior.
         if (
-            event.key() == Qt.Key.Key_Space
+            event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Backspace)
             and not event.modifiers()
             and not isinstance(
                 focus, (QLineEdit, QPlainTextEdit, QTextEdit, QComboBox, QDoubleSpinBox)
             )
         ):
             if event.type() == QEvent.Type.KeyPress and not event.isAutoRepeat():
-                self.toggle_play()
+                if event.key() == Qt.Key.Key_Backspace:
+                    self.stop_playback()
+                else:
+                    self.toggle_play()
             return True
         if event.type() != QEvent.Type.KeyPress:
             return False
@@ -3543,8 +3596,8 @@ class MainWindow(QMainWindow):
                 self.preferences["reduced_motion"],
             )
             self.save_presentation()
-            blocker = QSignalBlocker(self.dark_mode_action)
-            self.dark_mode_action.setChecked(
+            blocker = QSignalBlocker(self.dark_mode_toggle)
+            self.dark_mode_toggle.setChecked(
                 QApplication.instance().palette().base().color().lightness() < 128
             )
             del blocker
@@ -3925,7 +3978,7 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         chapters = {
             "Workflow": "Load MP3s → check details and lyrics → apply lyric changes → analyze or time manually → listen and review → save. Opening and importing never write an MP3. Save always reviews the selected song.\n\nUse the Lyrics & timing tab for lyric editing and listening review. The Song details tab contains editable tags, artwork and file information. The View menu also switches tabs and focuses the lyric editor or timing table. You can edit tags and save without timing any lyrics.\n\nPaste one sung line per row. Keep [Verse] headings if useful; explicitly repeat chorus occurrences. Pending lyric edits lock the old timing table. Applying changes previews removed timings and can be undone.\n\nFind details/lyrics uses online sources only on request. Edit search terms independently from your tags. Proposals let you choose fields and keep your cover.",
-            "Timing keys": "Enter stamps from anywhere in the main window except text fields and dialogs. Other timing shortcuts apply when the lyric table has focus.\n\nSpace: play/pause. Paused Up/Down: select and seek. Left/Right: nudge ±100 ms; Shift: ±1 second. Enter: stamp only the indicated untimed line. Delete: clear the selected line timing while paused (also works after using playback controls). Ctrl+Z: undo; Ctrl+Shift+Z: redo. Ctrl+O opens songs; Ctrl+S reviews saving.\n\nPlayback owns one highlighted line and the Enter target. Pause to choose another. Held Enter cannot stamp multiple lines. To replace a timestamp, pause, select the line and use Clear time, then play and press Enter at the new start. Review decision → Not sung in this version excludes a line persistently.",
+            "Timing keys": "Enter stamps from anywhere in the main window except text fields and dialogs. Other timing shortcuts apply when the lyric table has focus.\n\nSpace: play/pause. Backspace: stop and return to the beginning (except in text fields). Paused Up/Down: select and seek. Left/Right: nudge ±100 ms; Shift: ±1 second. Enter: stamp only the indicated untimed line. Delete: clear the selected line timing while paused (also works after using playback controls). Ctrl+Z: undo; Ctrl+Shift+Z: redo. Ctrl+O opens songs; Ctrl+S reviews saving.\n\nPlayback owns one highlighted line and the Enter target. Pause to choose another. Held Enter cannot stamp multiple lines. To replace a timestamp, pause, select the line and use Clear time, then play and press Enter at the new start. Review decision → Not sung in this version excludes a line persistently.",
             "Word review": "Drag words or boundaries, or use the selected-word Start/End inspector. Chart Up/Down selects words. Left/Right moves by 10 ms; Ctrl changes the start and Shift changes the end. Exact table/tap controls are optional.\n\nPlayback is bounded to the review window; Loop this section repeats it. Apply + previous/next line commits the valid draft and navigates. Validation identifies the offending word. Cancel asks before discarding your manual changes.\n\nEqual spacing is an estimate. Model support is a heuristic, never a correctness probability. Mark line and word listening review separately; moving a line does not certify its words. Mark words reviewed preserves their support/provenance. Not sung leaves plain lyrics intact and omits synchronized output.",
             "Saving and recovery": "Edits stay in a working draft until Review & save to MP3. Recoverable drafts are saved after changes in application data storage, separately from caches. On startup, restore the previous workspace; changed files are rejected and missing ones can be relocated. Canceling recovery retains the old draft and pauses new recovery until you restore or discard it. Failed/skipped drafts remain preserved.\n\nClosing offers Save selected, Keep recovery drafts, Discard or Cancel. Each save follows its normal review. Undo is per song and does not automatically roll back files.\n\nMP3 and LRC retain line starts. Timing projects (.json) retain metadata, artwork, display lyrics, word boundaries, review decisions and excluded lines. Export one for a portable copy; reopen it against its original MP3. Imported LRC remains unreviewed.\n\nView → Show waveform provides local amplitude navigation and zoom; it is not lyric evidence. The playback bar shows position and duration beside the volume control. Appearance offers light/dark/system, font size and reduced motion. Settings validates fields before closing and checks local dependency presence without downloads.",
         }

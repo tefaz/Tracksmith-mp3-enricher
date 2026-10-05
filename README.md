@@ -2,20 +2,22 @@
 
 A Python/PySide6 desktop app for editing local MP3 metadata, finding artwork and lyrics, and synchronizing lyrics to your recording—including edited songs with cuts or repeated sections.
 
+![Tracksmith desktop interface with lyrics, playback controls and timing review](screenshot_for_presentation.png)
+
 ## Features
 
 - **MP3 details:** edit title, artist, album, album artist, date, track number and genre; inspect audio and tag information.
 - **Album artwork:** search MusicBrainz/Cover Art Archive or load a local image; preview and choose replacements.
 - **Lyrics:** paste, edit or find lyrics through LRCLIB; compare search results against your current text.
-- **Manual line timing:** play the song and stamp line starts with Enter; seek, nudge timestamps, undo/redo and mark unsung lines.
+- **Manual line timing:** play the song and stamp line starts with Enter; seek, nudge timestamps, undo/redo and mark unsung lines. Clear a selected line with **Clear time (Del)** or reset every line and word timing with **Clear all**, undoable in one step.
 - **Precise word timing:** adjust word starts and ends in a draggable chart or numeric fields, with section playback and looping.
 - **Optional local AI:** generate word and line timings using Whisper; optional CTC alignment, word-start refinement and Demucs vocal separation.
 - **Listening review:** track line and word review separately, with timing provenance and explicit labels for estimated boundaries.
 - **Multi-song workspace:** load files, folders or drag-and-drop MP3s; search songs and filter by saved lyric/timing completeness.
 - **Batch tools:** find and save lyrics, generate missing line timings, and find missing covers for acceptance in a visual review grid. Existing timings and covers are protected.
-- **Playback tools:** seek, change speed and volume, replay sections and display an optional local waveform.
+- **Playback tools:** use **Play (space)** / **Pause (space)** and **Stop (backspace)**, seek, change speed and volume, replay sections and display an optional local waveform. Stop returns playback to the beginning.
 - **Portable work:** import/export line-timed LRC and complete JSON timing projects; retain corrected word timings in application storage.
-- **Recovery and appearance:** recover unsaved drafts, keep per-song edit history, and choose light/dark/system themes and adjustable text size.
+- **Recovery and appearance:** recover unsaved drafts, keep per-song edit history, and switch light/dark mode with the pill toggle at the upper right. **View → Appearance** also offers the system theme and adjustable text size.
 - **Verified saves:** review changes before individual saves; write ID3 tags atomically and verify that compressed audio remains unchanged.
 
 ## Install and run

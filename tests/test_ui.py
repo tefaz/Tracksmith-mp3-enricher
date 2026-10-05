@@ -77,6 +77,7 @@ def test_start_without_song_and_load_button(qtbot, mp3, tmp_path, monkeypatch):
     assert window.player.source().isEmpty()
     assert window.load_button.isEnabled()
     assert not window.play_button.isEnabled()
+    assert not window.stop_button.isEnabled()
     assert not window.save_button.isEnabled()
     monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *args: ([str(mp3)], ""))
     qtbot.mouseClick(window.load_button, Qt.MouseButton.LeftButton)
@@ -85,6 +86,7 @@ def test_start_without_song_and_load_button(qtbot, mp3, tmp_path, monkeypatch):
     assert window.track.path == mp3
     assert window.load_button.isEnabled()
     assert window.play_button.isEnabled()
+    assert window.stop_button.isEnabled()
     assert not window.track.dirty
     window.close()
 
@@ -149,6 +151,58 @@ def test_real_player_play_pause_seek_and_highlight(qtbot, mp3, tmp_path):
     window.seek_line(0)
     qtbot.waitUntil(lambda: window.player.position() == 200)
     assert window._active == 0
+    window.close()
+
+
+def test_stop_button_and_backspace_reset_playback(qtbot, mp3, tmp_path):
+    window = window_for(qtbot, mp3, tmp_path)
+    window.audio_output.setMuted(True)
+    window.activateWindow()
+    qtbot.waitUntil(lambda: window.isActiveWindow())
+    qtbot.waitUntil(
+        lambda: window.player.mediaStatus() == QMediaPlayer.MediaStatus.LoadedMedia, timeout=10000
+    )
+    for focus in (window.table, window.play_button, window.timeline):
+        window.player.setPosition(1200)
+        window.player.play()
+        qtbot.waitUntil(lambda: window.player.position() > 1200, timeout=5000)
+        focus.setFocus()
+        qtbot.keyClick(focus, Qt.Key.Key_Backspace)
+        assert window.player.playbackState() == QMediaPlayer.PlaybackState.StoppedState
+        assert window.player.position() == 0
+        assert window.timeline.value() == 0
+        assert not window.table.playback_locked
+        assert window.play_button.text() == "▶  Play (space)"
+
+    window.player.setPosition(1200)
+    window.player.play()
+    qtbot.waitUntil(lambda: window.player.position() > 1200, timeout=5000)
+    qtbot.mouseClick(window.stop_button, Qt.MouseButton.LeftButton)
+    assert window.player.playbackState() == QMediaPlayer.PlaybackState.StoppedState
+    assert window.player.position() == 0
+    window.player.setPosition(1200)
+    window.player.play()
+    qtbot.waitUntil(lambda: window.player.position() > 1200, timeout=5000)
+    window.player.pause()
+    qtbot.mouseClick(window.stop_button, Qt.MouseButton.LeftButton)
+    assert window.player.playbackState() == QMediaPlayer.PlaybackState.StoppedState
+    assert window.player.position() == 0
+    window.close()
+
+
+def test_backspace_in_text_fields_keeps_playing(qtbot, mp3, tmp_path):
+    window = window_for(qtbot, mp3, tmp_path)
+    window.audio_output.setMuted(True)
+    window.activateWindow()
+    qtbot.waitUntil(lambda: window.isActiveWindow())
+    window.player.play()
+    for editor in (window.metadata_fields["title"], window.lyrics_editor):
+        editor.setFocus()
+        qtbot.keyClicks(editor, "abc")
+        qtbot.keyClick(editor, Qt.Key.Key_Backspace)
+        content = editor.text() if hasattr(editor, "text") else editor.toPlainText()
+        assert content.endswith("ab")
+        assert window.is_playing()
     window.close()
 
 

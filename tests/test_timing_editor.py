@@ -308,3 +308,81 @@ def test_clear_automatic_words_keeps_line_times_manual_edits_and_supports_undo(q
     assert window.track.aligned_lines == original
     assert window.clear_auto_words_button.isEnabled()
     window.close()
+
+
+def test_clear_all_timings_preserves_lyrics_and_exclusions_and_undoes_in_one_step(
+    qtbot, mp3, tmp_path
+):
+    window = window_for(qtbot, mp3, tmp_path)
+    window.lyrics_editor.setPlainText("AI\nManual\nEstimate\nLine only\nNot sung")
+    window.apply_lyrics()
+    window.track.aligned_lines = [
+        LyricLine("AI", 0.2, 0.8, 0.9, "ai", [Word("AI", 0.2, 0.8)]),
+        LyricLine(
+            "Manual", 1, 1.8, words=[Word("Manual", 1, 1.8, 1, "manual")],
+            line_reviewed=True, words_reviewed=True,
+        ),
+        LyricLine("Estimate", 2, 2.5, words=[Word("Estimate", 2, 2.5, 0, "estimated")]),
+        LyricLine("Line only", 3, source="manual", line_reviewed=True),
+        LyricLine("Not sung", excluded=True, note="Different version"),
+    ]
+    window.track.mark_saved()
+    window.render_table()
+    original = deepcopy(window.track.aligned_lines)
+    lyrics = window.track.display_lyrics
+    history_size = len(window.current_session().history)
+    window.table.clearSelection()
+    window.table.setCurrentCell(-1, -1)
+    assert window.clear_all_times_button.isEnabled()
+    window.clear_all_times_button.click()
+    assert window.track.dirty
+    assert window.track.display_lyrics == lyrics
+    assert [line.line_id for line in window.track.aligned_lines] == [
+        line.line_id for line in original
+    ]
+    assert [line.text for line in window.track.aligned_lines] == [line.text for line in original]
+    assert all(
+        line.start is None and line.end is None and not line.words
+        for line in window.track.aligned_lines
+    )
+    assert all(
+        not line.line_reviewed and not line.words_reviewed
+        for line in window.track.aligned_lines[:4]
+    )
+    assert window.track.aligned_lines[-1] == original[-1]
+    assert not window.clear_all_times_button.isEnabled()
+    assert len(window.current_session().history) == history_size + 1
+    window.clear_all_timings()
+    assert len(window.current_session().history) == history_size + 1
+    window.undo_stamp()
+    assert window.track.aligned_lines == original
+    assert not window.track.dirty
+    assert window.clear_all_times_button.isEnabled()
+    window.redo_edit()
+    assert all(line.start is None and not line.words for line in window.track.aligned_lines)
+    window.close()
+
+
+def test_clear_all_timings_requires_idle_paused_applied_lyrics(qtbot, mp3, tmp_path, monkeypatch):
+    window = window_for(qtbot, mp3, tmp_path)
+    assert not window.clear_all_times_button.isEnabled()
+    window.track.aligned_lines = [LyricLine("Timed", 1)]
+    window.render_table()
+    original = deepcopy(window.track.aligned_lines)
+    monkeypatch.setattr(window, "is_playing", lambda: True)
+    window.update_timing_selection()
+    assert not window.clear_all_times_button.isEnabled()
+    window.clear_all_timings()
+    assert window.track.aligned_lines == original
+    monkeypatch.setattr(window, "is_playing", lambda: False)
+    window.job = object()
+    window.update_timing_selection()
+    assert not window.clear_all_times_button.isEnabled()
+    window.clear_all_timings()
+    assert window.track.aligned_lines == original
+    window.job = None
+    window.lyrics_editor.setPlainText("Pending edit")
+    assert not window.clear_all_times_button.isEnabled()
+    window.clear_all_timings()
+    assert window.track.aligned_lines == original
+    window.close()

@@ -194,12 +194,12 @@ def test_focused_button_space_only_toggles_playback(qtbot, mp3, tmp_path):
 
 def test_dark_mode_is_default_and_toggle_is_saved(qtbot, mp3, tmp_path):
     window = window_for(qtbot, mp3, tmp_path)
-    assert window.dark_mode_action.isChecked()
+    assert window.dark_mode_toggle.isChecked()
     assert window.palette().base().color().lightness() < 128
-    window.dark_mode_action.trigger()
+    qtbot.mouseClick(window.dark_mode_toggle, Qt.MouseButton.LeftButton)
     assert window.palette().base().color().lightness() > 128
     assert window.workspace_store.preferences()["theme"] == "Light"
-    window.dark_mode_action.trigger()
+    qtbot.mouseClick(window.dark_mode_toggle, Qt.MouseButton.LeftButton)
     assert window.palette().base().color().lightness() < 128
     assert window.workspace_store.preferences()["theme"] == "Dark"
     window.close()
