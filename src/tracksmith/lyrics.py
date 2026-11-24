@@ -77,6 +77,7 @@ def parse_lrc(text: str, duration: float) -> tuple[str, list[LyricLine]]:
     """Import basic line LRC, preserving repeated occurrences as unreviewed data."""
     rows, display = [], []
     offset_match = re.search(r"\[offset:([+-]?\d+)\]", text, re.I)
+    # [offset:] is in milliseconds; a positive value makes the lyrics appear sooner.
     offset = int(offset_match[1]) / 1000 if offset_match else 0
     for raw in text.splitlines():
         if re.fullmatch(r"\s*\[(?:ar|ti|al|by|re|ve|length|offset):.*\]\s*", raw, re.I):
@@ -87,7 +88,7 @@ def parse_lrc(text: str, duration: float) -> tuple[str, list[LyricLine]]:
             if not alignment_text(lyric):
                 continue
             for time in re.findall(r"\[([^]]+)\]", tags[1]):
-                seconds = parse_timestamp(time) + offset
+                seconds = round(parse_timestamp(time) - offset, 3)
                 if not 0 <= seconds <= duration:
                     raise ValueError("Imported LRC timestamp is outside this audio")
                 display.append(lyric)

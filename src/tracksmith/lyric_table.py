@@ -23,11 +23,6 @@ class LyricTable(QTableWidget):
         self.setEditTriggers(
             self.EditTrigger.NoEditTriggers if locked else self._paused_edit_triggers
         )
-        self.setToolTip(
-            "Click a timed line to pause at its start. Pause to edit another line."
-            if locked
-            else "Select a line to seek; double-click to edit. Enter stamps this selected line if untimed."
-        )
 
     def mousePressEvent(self, event):
         if self.playback_locked:

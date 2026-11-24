@@ -419,6 +419,30 @@ class CTCForcedAligner:
         ]
 
 
+def withhold_crossing_lines(lines: list[LyricLine]) -> list[LyricLine]:
+    """Embedded SYLT needs every word start in time order across lines.
+
+    Lines aligned in separate audio windows can cut into each other, and saving would
+    then fail. Withhold the less supported line of each crossing pair rather than move
+    timings that the audio did not support.
+    """
+    while True:
+        timed = sorted((line for line in lines if line.start is not None), key=lambda x: x.start)
+        for before, after in zip(timed, timed[1:]):
+            last_cue = before.words[-1].start if before.words else before.start
+            if after.start < last_cue:
+                weaker = after if after.confidence <= before.confidence else before
+                weaker.start = weaker.end = None
+                weaker.words = []
+                weaker.source = "unmatched"
+                weaker.note = (
+                    "Overlapped a neighbouring line's words; timestamp withheld. Time it manually."
+                )
+                break
+        else:
+            return lines
+
+
 def group_passages(passages: dict[int, Passage], words: list[Word]) -> list[list[int]]:
     """Group nearby evidenced lines into bounded windows in actual audio order."""
     groups = []
@@ -526,9 +550,12 @@ class WhisperForcedAligner:
                         crop_end = min(len(audio) / 16000, line_words[-1].end + 1)
                         if crop_end - crop_start <= 30:
                             prepared[index] = refine_whisper_starts(
-                                self.model, self.tokenizer,
-                                audio[int(crop_start * 16000):int(crop_end * 16000)],
-                                line_words, crop_start, context,
+                                self.model,
+                                self.tokenizer,
+                                audio[int(crop_start * 16000) : int(crop_end * 16000)],
+                                line_words,
+                                crop_start,
+                                context,
                             )
             except ValueError as exc:
                 for index in group:
@@ -593,10 +620,12 @@ class LocalAlignment:
         stored = None if injected or fresh else self.cache.get("alignment", identity)
         if stored and any(line["start"] is not None for line in stored):
             context.progress("Load cached alignment — unchanged audio and lyrics", 100)
-            return [
-                LyricLine(**{**line, "words": [Word(**word) for word in line["words"]]})
-                for line in stored
-            ]
+            return withhold_crossing_lines(
+                [
+                    LyricLine(**{**line, "words": [Word(**word) for word in line["words"]]})
+                    for line in stored
+                ]
+            )
         device = "cpu" if injected else select_device(self.settings.device)
         log.info(
             "alignment backend",
@@ -763,6 +792,7 @@ class LocalAlignment:
             context.check()
             if file_hash(track.path) != track.content_hash:
                 raise ValueError("MP3 changed during analysis; results discarded")
+            withhold_crossing_lines(results)
             if not injected:
                 self.cache.put("alignment", identity, [asdict(line) for line in results])
             context.progress("Local timing analysis complete", 100)

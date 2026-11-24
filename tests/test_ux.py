@@ -24,7 +24,7 @@ def test_welcome_load_and_next_step_follow_lyrics_state(qtbot, mp3, tmp_path, mo
     assert "paste lyrics" in window.next_step.text()
     assert not window.save_button.isEnabled()
     window.lyrics_editor.setPlainText("First line\nSecond line")
-    assert "Lyrics changed" in window.next_step.text()
+    assert "Unapplied lyric edits" in window.next_step.text()
     assert window.save_state.text() == "Edits not saved"
     assert window.save_button.isEnabled()
     window.apply_button.click()
@@ -79,15 +79,22 @@ def test_hide_reviewed_lines_requires_line_and_word_review(qtbot, mp3, tmp_path)
     window.track.aligned_lines = [
         LyricLine("Line only", 0, line_reviewed=True),
         LyricLine(
-            "Words pending", 0.5, line_reviewed=True,
+            "Words pending",
+            0.5,
+            line_reviewed=True,
             words=[Word("Words", 0.5, 0.7), Word("pending", 0.7, 0.9)],
         ),
         LyricLine(
-            "Line pending", 1, words_reviewed=True,
+            "Line pending",
+            1,
+            words_reviewed=True,
             words=[Word("Line", 1, 1.2), Word("pending", 1.2, 1.4)],
         ),
         LyricLine(
-            "Both reviewed", 1.5, line_reviewed=True, words_reviewed=True,
+            "Both reviewed",
+            1.5,
+            line_reviewed=True,
+            words_reviewed=True,
             words=[Word("Both", 1.5, 1.7), Word("reviewed", 1.7, 1.9)],
         ),
         LyricLine("Missing", line_reviewed=True, words_reviewed=True),

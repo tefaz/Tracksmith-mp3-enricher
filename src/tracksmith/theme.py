@@ -27,7 +27,11 @@ REVIEW = "#fff1d3"
 
 
 def timing_selection_color(widget):
-    return widget.palette().highlight().color() if widget.palette().base().color().lightness() < 128 else QColor(ACTIVE)
+    return (
+        widget.palette().highlight().color()
+        if widget.palette().base().color().lightness() < 128
+        else QColor(ACTIVE)
+    )
 
 
 def tone(widget, value):
@@ -254,7 +258,6 @@ def apply_theme(app: QApplication, variant="dark", font_size=10, reduced_motion=
             "#18833e": "#53ee87",
             "#fff1d3": "#303030",
             "#77501b": "#dddddd",
-
         }
         stylesheet = re.sub(
             r"#[0-9a-fA-F]{6}", lambda match: replacements.get(match[0], match[0]), stylesheet

@@ -115,9 +115,7 @@ def test_clear_and_restamp_replaces_line_and_undo_restores_word_data(qtbot, mp3,
     window.close()
 
 
-def test_enter_and_removed_retime_shortcut_cannot_overwrite_finished_timing(
-    qtbot, mp3, tmp_path
-):
+def test_enter_and_removed_retime_shortcut_cannot_overwrite_finished_timing(qtbot, mp3, tmp_path):
     window = stamping_window(qtbot, mp3, tmp_path)
     window.track.aligned_lines = [
         LyricLine("Already timed", 0.2, 0.4, 0.9, "ai", [Word("First", 0.2, 0.4, 0.9)])

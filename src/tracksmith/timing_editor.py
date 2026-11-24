@@ -282,7 +282,11 @@ class WordTimingDialog(PlaybackDialog):
         self.layout.addWidget(label)
         self.spacing_start = window.word_start
         self.spacing_end = min(
-            next_start if next_start is not None else line.end if line.end is not None else window.end,
+            next_start
+            if next_start is not None
+            else line.end
+            if line.end is not None
+            else window.end,
             window.end,
         )
         self.interval_hint = QLabel(
@@ -634,8 +638,16 @@ class WordTimingDialog(PlaybackDialog):
             for column in range(4):
                 item = self.table.item(row, column)
                 if item:
-                    item.setBackground(timing_selection_color(self.table) if active else self.palette().base().color())
-                    item.setForeground(QColor("#202020") if active and self.palette().base().color().lightness() >= 128 else self.palette().text().color())
+                    item.setBackground(
+                        timing_selection_color(self.table)
+                        if active
+                        else self.palette().base().color()
+                    )
+                    item.setForeground(
+                        QColor("#202020")
+                        if active and self.palette().base().color().lightness() >= 128
+                        else self.palette().text().color()
+                    )
         del blocker
 
     def edited(self, item):

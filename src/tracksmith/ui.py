@@ -95,6 +95,8 @@ from .timing_editor import WordTimingDialog
 from .waveform import Waveform, decode_overview
 from .workspace import WorkspaceStore, apply_state, encode_artwork
 
+PENDING_LYRICS_MESSAGE = "Apply your lyric edits before changing timings."
+
 
 class CandidateDialog(QDialog):
     def __init__(self, title: str, labels: list[str], details: list[str], parent, current_text=""):
@@ -909,7 +911,9 @@ class MainWindow(QMainWindow):
         timing_layout.addLayout(timing_heading)
         self.timing_summary = label("Load a song to review line and word timings.")
         timing_layout.addWidget(self.timing_summary)
-        self.pending_banner = label("Lyrics changed — apply lyric changes before timing edits.")
+        self.pending_banner = label(
+            "Unapplied lyric edits — playback and review use the applied lyrics. Apply changes before editing timings."
+        )
         tone(self.pending_banner, "warning")
         self.pending_banner.hide()
         timing_layout.addWidget(self.pending_banner)
@@ -1034,9 +1038,7 @@ class MainWindow(QMainWindow):
             self._button("Cancel analysis", self.cancel_job, progress_layout), "danger"
         )
         footer_box.addWidget(self.progress_row)
-        self.save_button = tone(
-            self._button("Review && save to MP3", self.save, actions), "positive"
-        )
+        self.save_button = tone(self._button("Save changes", self.save, actions), "positive")
         self.save_button.setToolTip(
             "Review changes before embedding details, cover and lyrics in the MP3"
         )
@@ -1204,9 +1206,7 @@ class MainWindow(QMainWindow):
             self.song_heading.setText(self.track.proposed_metadata.title or self.track.path.stem)
         name = self.track.path.name if self.track else ""
         dirty = self.track and (self.track.dirty or self._lyrics_pending)
-        self.setWindowTitle(
-            f"{'* ' if dirty else ''}{name + ' — ' if name else ''}Tracksmith"
-        )
+        self.setWindowTitle(f"{'* ' if dirty else ''}{name + ' — ' if name else ''}Tracksmith")
         self.update_workflow()
 
     def needs_review(self, line):
@@ -1250,9 +1250,7 @@ class MainWindow(QMainWindow):
             and not self._lyrics_pending
             and any(self.has_automatic_words(line) for line in self.track.aligned_lines)
         )
-        self.review_button.setEnabled(
-            selected and not self.is_playing() and not self._lyrics_pending
-        )
+        self.review_button.setEnabled(selected and not self.is_playing())
         self.unmatch_button.setEnabled(selected and not self.is_playing())
         self.clear_all_times_button.setEnabled(
             self.track is not None
@@ -1274,9 +1272,17 @@ class MainWindow(QMainWindow):
             self.redo_action.setText(
                 "Redo " + (session.redo[-1]["label"] if session and session.redo else "")
             )
-        self.table.setEnabled(
-            self.track is not None and self.job is None and not self._lyrics_pending
-        )
+        self.table.setEnabled(self.track is not None and self.job is None)
+        blocker = QSignalBlocker(self.table)
+        for row in range(self.table.rowCount()):
+            for column in (0, 1):
+                item = self.table.item(row, column)
+                if item:
+                    flags = item.flags()
+                    editable = bool(flags & Qt.ItemFlag.ItemIsEditable)
+                    if editable == self._lyrics_pending:
+                        item.setFlags(flags ^ Qt.ItemFlag.ItemIsEditable)
+        del blocker
         self.pending_banner.setVisible(self.track is not None and self._lyrics_pending)
         if self._lyrics_pending:
             self.unmatch_button.setEnabled(False)
@@ -1350,7 +1356,7 @@ class MainWindow(QMainWindow):
             )
         elif self._lyrics_pending:
             self.next_step.setText(
-                "Lyrics changed. Update the lines before reviewing their timing."
+                "Unapplied lyric edits. You can play and review the applied lyrics; apply changes before editing timings."
             )
         elif self.workspace_tabs.currentIndex() == 1:
             self.next_step.setText(
@@ -1475,7 +1481,8 @@ class MainWindow(QMainWindow):
         eligible = [
             session
             for session in sessions
-            if not session.track.dirty and not session.lyrics_pending
+            if not session.track.dirty
+            and not session.lyrics_pending
             and (mode != "covers" or session.track.artwork is None)
         ]
         if mode == "lyrics" and self.settings.lyrics_provider == "manual":
@@ -1491,7 +1498,11 @@ class MainWindow(QMainWindow):
             )
             return
         dialog = QDialog(self)
-        names = {"lyrics": "Batch lyric lookup", "timing": "Batch line timings", "covers": "Batch album covers"}
+        names = {
+            "lyrics": "Batch lyric lookup",
+            "timing": "Batch line timings",
+            "covers": "Batch album covers",
+        }
         dialog.setWindowTitle(names[mode])
         dialog.resize(640, 480)
         layout = QVBoxLayout(dialog)
@@ -1524,13 +1535,19 @@ class MainWindow(QMainWindow):
         replace = QCheckBox("Also replace existing lyrics (preserve timed/excluded lines)")
         replace.setVisible(mode == "lyrics")
         layout.addWidget(replace)
-        fingerprint = QCheckBox("Also verify the audio identity (optional, requires AcoustID setup)")
+        fingerprint = QCheckBox(
+            "Also verify the audio identity (optional, requires AcoustID setup)"
+        )
         fingerprint.setVisible(mode == "covers")
-        fingerprint.setToolTip("Requires an AcoustID application key in Settings and fpcalc installed.")
+        fingerprint.setToolTip(
+            "Requires an AcoustID application key in Settings and fpcalc installed."
+        )
         layout.addWidget(fingerprint)
         if len(sessions) != len(eligible):
             layout.addWidget(
-                QLabel(f"{len(sessions) - len(eligible)} songs with unsaved edits or existing artwork will be skipped.")
+                QLabel(
+                    f"{len(sessions) - len(eligible)} songs with unsaved edits or existing artwork will be skipped."
+                )
             )
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -1554,7 +1571,8 @@ class MainWindow(QMainWindow):
         settings = deepcopy(self.settings)
         provider = (
             BatchCoverProvider(self.http(), settings.acoustid_key, verify_audio)
-            if mode == "covers" else LRCLibProvider(self.http())
+            if mode == "covers"
+            else LRCLibProvider(self.http())
         )
         replace_existing = replace.isChecked()
         self.player.stop()
@@ -1607,14 +1625,18 @@ class MainWindow(QMainWindow):
         for proposal in proposals:
             session = next((s for s in self.sessions if s.track.path == proposal.track.path), None)
             if (
-                session is None or session.track.dirty or session.lyrics_pending
+                session is None
+                or session.track.dirty
+                or session.lyrics_pending
                 or session.track.content_hash != proposal.track.content_hash
             ):
                 rows.append((proposal.track.path, "Skipped: song changed since cover search"))
             else:
                 valid.append(proposal)
         if not valid:
-            self.finish_job_display("No accepted covers eligible to save", "\n".join(f"{p.name}: {m}" for p, m in rows))
+            self.finish_job_display(
+                "No accepted covers eligible to save", "\n".join(f"{p.name}: {m}" for p, m in rows)
+            )
             return
 
         def completed(saved):
@@ -1623,8 +1645,11 @@ class MainWindow(QMainWindow):
 
         self.start_job(
             lambda context: run_batch(
-                [proposal.track for proposal in valid], "covers", deepcopy(self.settings),
-                AcceptedCoverProvider(valid), context,
+                [proposal.track for proposal in valid],
+                "covers",
+                deepcopy(self.settings),
+                AcceptedCoverProvider(valid),
+                context,
                 on_saved=lambda track: store_timing_state(
                     track, Cache(self.workspace_store.directory / "timings")
                 ),
@@ -1784,15 +1809,37 @@ class MainWindow(QMainWindow):
                 session.release_candidates = self.release_candidates
                 break
 
+    def song_status(self, session):
+        """Return (dirty, timing category) without re-deriving every loaded song.
+
+        Comparing a song with its saved state is expensive, and only the open song
+        can change between refreshes. Recompute it, the song open at the previous
+        refresh, and any session whose track object was replaced (load or save).
+        """
+        track = session.track
+        cached = session.status_cache
+        if (
+            cached is None
+            or cached[0] is not track
+            or track is self.track
+            or track is getattr(self, "_status_refreshed_track", None)
+        ):
+            cached = (track, track.dirty, timing_category(track))
+            session.status_cache = cached
+        return cached[1], cached[2]
+
     def refresh_song_list(self):
+        statuses = [self.song_status(session) for session in self.sessions]
+        self._status_refreshed_track = self.track
         for index, session in enumerate(self.sessions):
             track = session.track
+            dirty, category = statuses[index]
             metadata = track.proposed_metadata
             title = metadata.title or track.path.stem
             artist = metadata.artist or "Unknown artist"
-            self.song_list.item(index).setData(Qt.ItemDataRole.UserRole, timing_category(track))
+            self.song_list.item(index).setData(Qt.ItemDataRole.UserRole, category)
             pending = self._lyrics_pending if track is self.track else session.lyrics_pending
-            suffix = " · Unsaved" if track.dirty or pending else ""
+            suffix = " · Unsaved" if dirty or pending else ""
             metrics = self.song_list.fontMetrics()
             width = max(80, self.song_list.viewport().width() - 30)
             self.song_list.item(index).setText(
@@ -1802,17 +1849,16 @@ class MainWindow(QMainWindow):
             self.song_list.item(index).setSizeHint(QSize(0, metrics.height() * 2 + 8))
             self.song_list.item(index).setData(
                 Qt.ItemDataRole.AccessibleTextRole,
-                f"{title}, {artist}, {timing_category(track)}"
-                + (", Unsaved changes" if suffix else ""),
+                f"{title}, {artist}, {category}" + (", Unsaved changes" if suffix else ""),
             )
             self.song_list.item(index).setToolTip(
-                f"{track.path}\n{timing_category(track)}\n{track.status}{suffix}"
+                f"{track.path}\n{category}\n{track.status}{suffix}"
             )
         self.song_count.setText(
             f"{len(self.sessions)} song(s) loaded" if self.sessions else "No songs loaded"
         )
         for index, category in enumerate(CATEGORIES, 1):
-            count = sum(timing_category(session.track) == category for session in self.sessions)
+            count = sum(status[1] == category for status in statuses)
             self.category_filter.setItemText(index, f"{category} ({count})")
         self.filter_songs(self.song_search.text())
 
@@ -2000,7 +2046,7 @@ class MainWindow(QMainWindow):
             self._title()
             self.update_timing_selection()
             self.statusBar().showMessage(
-                "Apply the edited lyrics before timing, exporting, or saving"
+                "Playback and review use the applied lyrics. Apply edits before timing, exporting, or saving"
             )
 
     def apply_lyrics(self):
@@ -2073,11 +2119,6 @@ class MainWindow(QMainWindow):
                     [format_timestamp(line.start), line.text, status, word_status]
                 ):
                     item = QTableWidgetItem(text)
-                    item.setToolTip(
-                        f"{line.note}\nModel support: {line.confidence:.0%} (heuristic). Source: {line.source}\nOccurrence: {row + 1}"
-                    )
-                    if column == 3:
-                        item.setToolTip("Click to open word timings for this line.")
                     if column in (2, 3):
                         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     self.table.setItem(row, column, item)
@@ -2277,14 +2318,9 @@ class MainWindow(QMainWindow):
         del blocker
 
     def timing_cell_clicked(self, row, column):
-        if (
-            not self.track
-            or self.job
-            or self._lyrics_pending
-            or not 0 <= row < len(self.track.aligned_lines)
-        ):
+        if not self.track or self.job or not 0 <= row < len(self.track.aligned_lines):
             return
-        if column == 3:
+        if column == 3 and not self._lyrics_pending:
             self.player.pause()
             self.table.selectRow(row)
             self.edit_word_timings()
@@ -2329,7 +2365,8 @@ class MainWindow(QMainWindow):
     def stamp_line(self):
         if self.job or not self.track:
             return
-        if self._lyrics_pending and not self.apply_lyrics():
+        if self._lyrics_pending:
+            self.statusBar().showMessage(PENDING_LYRICS_MESSAGE)
             return
         row = self.stamp_target()
         if row is None:
@@ -2444,9 +2481,10 @@ class MainWindow(QMainWindow):
     def edit_word_timings(self):
         if self.job or not self.track:
             return
-        self.player.pause()
-        if self._lyrics_pending and not self.apply_lyrics():
+        if self._lyrics_pending:
+            self.statusBar().showMessage(PENDING_LYRICS_MESSAGE)
             return
+        self.player.pause()
         row = self.table.currentRow()
         if row < 0:
             self.statusBar().showMessage("Select a lyric line first.")
@@ -3407,7 +3445,7 @@ class MainWindow(QMainWindow):
             self.work_scroll.ensureWidgetVisible(self.table)
 
     def review_decision(self, decision):
-        if not self.track or self.job or self._lyrics_pending or self.is_playing():
+        if not self.track or self.job or self.is_playing():
             return
         row = self.table.currentRow()
         if row < 0:
@@ -3437,7 +3475,7 @@ class MainWindow(QMainWindow):
             category = self.category_filter.currentData()
             self.song_list.item(row).setHidden(
                 text.casefold() not in value.casefold()
-                or bool(category and timing_category(session.track) != category)
+                or bool(category and self.song_status(session)[1] != category)
             )
         self.update_unload_category_button()
 
@@ -3446,7 +3484,7 @@ class MainWindow(QMainWindow):
         available = (
             self.job is None
             and bool(category)
-            and any(timing_category(session.track) == category for session in self.sessions)
+            and any(self.song_status(session)[1] == category for session in self.sessions)
         )
         self.unload_category_button.setEnabled(available)
         if hasattr(self, "batch_covers_action"):
@@ -3765,10 +3803,10 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(dialog)
         tabs = QTabWidget()
         chapters = {
-            "Workflow": "Load MP3s → check details and lyrics → apply lyric changes → analyze or time manually → listen and review → save. Opening and importing never write an MP3. Save always reviews the selected song.\n\nUse the Lyrics & timing tab for lyric editing and listening review. The Song details tab contains editable tags, artwork and file information. You can edit tags and save without timing any lyrics.\n\nPaste one sung line per row. Keep [Verse] headings if useful; explicitly repeat chorus occurrences. Pending lyric edits lock the old timing table. Applying changes previews removed timings and can be undone.\n\nFind details/lyrics uses online sources only on request. Edit search terms independently from your tags. Proposals let you choose fields and keep your cover.",
+            "Workflow": "Load MP3s → check details and lyrics → apply lyric changes → analyze or time manually → listen and review → save. Opening and importing never write an MP3. Save always reviews the selected song.\n\nUse the Lyrics & timing tab for lyric editing and listening review. The Song details tab contains editable tags, artwork and file information. You can edit tags and save without timing any lyrics.\n\nPaste one sung line per row. Keep [Verse] headings if useful; explicitly repeat chorus occurrences. Pending lyric edits keep the applied timing table available for playback and review; apply them before editing timings. Applying changes previews removed timings and can be undone.\n\nFind details/lyrics uses online sources only on request. Edit search terms independently from your tags. Proposals let you choose fields and keep your cover.",
             "Timing keys": "Enter stamps from anywhere in the main window except text fields and dialogs. Other timing shortcuts apply when the lyric table has focus.\n\nSpace: play/pause. Backspace: stop and return to the beginning (except in text fields). Paused Up/Down: select and seek. Left/Right: nudge ±100 ms; Shift: ±1 second. Enter: stamp only the indicated untimed line. Delete: clear the selected line timing while paused (also works after using playback controls). Ctrl+Z: undo; Ctrl+Shift+Z: redo. Ctrl+O opens songs; Ctrl+S reviews saving.\n\nPlayback owns one highlighted line and the Enter target. Pause to choose another. Held Enter cannot stamp multiple lines. To replace a timestamp, pause, select the line and use Clear time, then play and press Enter at the new start. Review decision → Not sung in this version excludes a line persistently.",
             "Word review": "Drag words or boundaries, or use the selected-word Start/End inspector. Chart Up/Down selects words. Left/Right moves by 10 ms; Ctrl changes the start and Shift changes the end. Exact table/tap controls are optional.\n\nPlayback is bounded to the review window; Loop this section repeats it. Apply + previous/next line commits the valid draft and navigates. Validation identifies the offending word. Cancel asks before discarding your manual changes.\n\nEqual spacing is an estimate. Model support is a heuristic, never a correctness probability. Mark line and word listening review separately; moving a line does not certify its words. Mark words reviewed preserves their support/provenance. Not sung leaves plain lyrics intact and omits synchronized output.",
-            "Saving": "Edits stay in a working draft until Review & save to MP3. Unsaved edits are kept only while the app is open.\n\nClosing offers Save selected, Discard edits or Cancel. Each save follows its normal review. Undo is per song and does not automatically roll back files.\n\nMP3s retain line starts and available word timings, including exact word ends. Ordinary LRC retains line starts. Timing projects (.json) retain metadata, artwork, display lyrics, word boundaries, review decisions and excluded lines. Export one for a portable copy; reopen it against its original MP3. Imported LRC remains unreviewed.\n\nView → Show waveform provides local amplitude navigation and zoom; it is not lyric evidence. The playback bar shows position and duration beside the volume control. Appearance offers light/dark/system, font size and reduced motion. Settings validates fields before closing and checks local dependency presence without downloads.",
+            "Saving": "Edits stay in a working draft until Save changes. Unsaved edits are kept only while the app is open.\n\nClosing offers Save selected, Discard edits or Cancel. Each save follows its normal review. Undo is per song and does not automatically roll back files.\n\nMP3s retain line starts and available word timings, including exact word ends. Ordinary LRC retains line starts. Timing projects (.json) retain metadata, artwork, display lyrics, word boundaries, review decisions and excluded lines. Export one for a portable copy; reopen it against its original MP3. Imported LRC remains unreviewed.\n\nView → Show waveform provides local amplitude navigation and zoom; it is not lyric evidence. The playback bar shows position and duration beside the volume control. Appearance offers light/dark/system, font size and reduced motion. Settings validates fields before closing and checks local dependency presence without downloads.",
         }
         for name, text in chapters.items():
             page = QPlainTextEdit(text)
@@ -3784,7 +3822,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Optional lyric file (.lrc)",
-            "An .lrc file is a separate text file containing lyrics and timestamps. Some players read it alongside an MP3.\n\nYou do not need it to save your work here: Review & save to MP3 embeds the lyrics and timing directly inside the song.\n\nIf you want a separate copy for another player, use File → Export timed lyrics to a separate file (.lrc).",
+            "An .lrc file is a separate text file containing lyrics and timestamps. Some players read it alongside an MP3.\n\nYou do not need it to save your work here: Save changes embeds the lyrics and timing directly inside the song.\n\nIf you want a separate copy for another player, use File → Export timed lyrics to a separate file (.lrc).",
         )
 
     def dragEnterEvent(self, event):

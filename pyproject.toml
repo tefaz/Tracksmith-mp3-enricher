@@ -25,6 +25,8 @@ tracksmith = ["assets/*.svg", "assets/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A stalled test prints every thread's stack instead of hanging silently.
+faulthandler_timeout = 60
 
 [tool.ruff]
 line-length = 100

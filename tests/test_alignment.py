@@ -265,13 +265,16 @@ def test_refined_alignment_uses_word_pass_without_changing_outer_bounds(monkeypa
 
     def refine(model, tokenizer, audio, words, offset, context):
         from copy import deepcopy
+
         calls.append((len(audio), offset))
         result = deepcopy(words)
         result[1].start += 0.05
         return result
 
     monkeypatch.setattr(refinement, "refine_whisper_starts", refine)
-    result = aligner.align_lines(np.zeros(4 * 16000), lines, {0: Passage(0, 4, 0.99)}, evidence, JobContext())[0]
+    result = aligner.align_lines(
+        np.zeros(4 * 16000), lines, {0: Passage(0, 4, 0.99)}, evidence, JobContext()
+    )[0]
     assert len(calls) == 1
     assert result[0].start == pytest.approx(0.6)
     assert result[1].start == pytest.approx(0.95)

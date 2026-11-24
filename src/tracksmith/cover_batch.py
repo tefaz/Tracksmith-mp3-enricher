@@ -38,7 +38,8 @@ class BatchCoverProvider:
         if self.fingerprint:
             artwork, album = self.lookup(track, context)
             return artwork, Candidate(
-                Metadata(artist=artist, title=title, album=album), 0,
+                Metadata(artist=artist, title=title, album=album),
+                0,
                 "Audio identity verified",
             )
         if not normalize_text(artist) or not normalize_text(title):
@@ -72,7 +73,9 @@ class BatchCoverProvider:
         title = track.existing_metadata.title or fallback_title
         if not normalize_text(artist) or not normalize_text(title):
             raise CoverSkipped("artist and title needed for cover lookup")
-        context.progress("Checking audio fingerprint" if self.fingerprint else "Searching artist and title", 5)
+        context.progress(
+            "Checking audio fingerprint" if self.fingerprint else "Searching artist and title", 5
+        )
         matches = (
             self.identification.identify(track, context)
             if self.fingerprint
@@ -80,7 +83,8 @@ class BatchCoverProvider:
         )
         if not self.fingerprint:
             matches = [
-                match for match in matches
+                match
+                for match in matches
                 if normalize_text(match.metadata.artist) == normalize_text(artist)
                 and normalize_text(match.metadata.title) == normalize_text(title)
             ]
@@ -92,21 +96,27 @@ class BatchCoverProvider:
                 )
         ranked = sorted(scores, key=scores.get, reverse=True)
         if not ranked or scores[ranked[0]] < (0.95 if self.fingerprint else 0.90):
-            raise CoverSkipped("no strong audio fingerprint match" if self.fingerprint else "no exact artist/title match")
+            raise CoverSkipped(
+                "no strong audio fingerprint match"
+                if self.fingerprint
+                else "no exact artist/title match"
+            )
         if len(ranked) > 1 and (
             not self.fingerprint or scores[ranked[1]] >= scores[ranked[0]] - 0.10
         ):
-            raise CoverSkipped("ambiguous audio fingerprint matches" if self.fingerprint else "artist/title matches several recordings")
+            raise CoverSkipped(
+                "ambiguous audio fingerprint matches"
+                if self.fingerprint
+                else "artist/title matches several recordings"
+            )
         recording_id = ranked[0]
         recording = self.http.json(
             f"https://musicbrainz.org/ws/2/recording/{recording_id}?inc=artist-credits&fmt=json",
             context,
         )
-        if (
-            normalize_text(recording.get("title", "")) != normalize_text(title)
-            or normalize_text(_artist(recording.get("artist-credit", [])))
-            != normalize_text(artist)
-        ):
+        if normalize_text(recording.get("title", "")) != normalize_text(title) or normalize_text(
+            _artist(recording.get("artist-credit", []))
+        ) != normalize_text(artist):
             raise CoverSkipped("recording identity disagrees with artist/title")
         if recording.get("video") or recording.get("disambiguation", "").strip():
             raise CoverSkipped("recording version needs manual review")
@@ -114,10 +124,15 @@ class BatchCoverProvider:
         releases, offset = [], 0
         while True:
             context.check()
-            query = urllib.parse.urlencode({
-                "recording": recording_id, "inc": "release-groups+artist-credits",
-                "fmt": "json", "limit": 100, "offset": offset,
-            })
+            query = urllib.parse.urlencode(
+                {
+                    "recording": recording_id,
+                    "inc": "release-groups+artist-credits",
+                    "fmt": "json",
+                    "limit": 100,
+                    "offset": offset,
+                }
+            )
             data = self.http.json("https://musicbrainz.org/ws/2/release?" + query, context)
             page = data.get("releases", [])
             releases.extend(page)
@@ -135,7 +150,8 @@ class BatchCoverProvider:
                 raise CoverSkipped("original album has no archived cover") from None
             raise
         fronts = [
-            image for image in archive.get("images", [])
+            image
+            for image in archive.get("images", [])
             if image.get("front") is True and image.get("approved") is True
         ]
         if len(fronts) != 1:
@@ -177,7 +193,8 @@ def find_cover_proposals(tracks, provider, context):
         child = JobContext(
             lambda text, percent: context.progress(
                 f"{prefix} · {text}", int((index * 100 + max(0, percent)) / len(tracks))
-            ), context.activity,
+            ),
+            context.activity,
         )
         child.cancelled = context.cancelled
         try:
@@ -236,10 +253,13 @@ def original_album(releases, artist, album=""):
     earliest = [r for r in albums if r["release-group"]["first-release-date"][:4] == earliest_year]
     if len({r["release-group"]["id"] for r in earliest}) != 1:
         raise CoverSkipped("original album is ambiguous")
-    if album and normalize_text(album) != normalize_text(earliest[0]["release-group"].get("title", "")):
+    if album and normalize_text(album) != normalize_text(
+        earliest[0]["release-group"].get("title", "")
+    ):
         raise CoverSkipped("original album disagrees with embedded album tag")
     editions = [
-        r for r in earliest
+        r
+        for r in earliest
         if r.get("date", "")[:4] == earliest_year
         and not r.get("disambiguation", "").strip()
         and r.get("cover-art-archive", {}).get("front") is True

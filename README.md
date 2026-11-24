@@ -96,7 +96,7 @@ Automatic singing alignment is experimental. Review generated timings by listeni
 2. Find and edit lyrics, or use **Tools → Batch: find and save lyrics** for multiple files.
 3. To add timing, apply lyric changes and stamp line starts manually or run optional analysis. Correct line and word timings while listening.
 4. Find an album cover for a song, or select a category and use **Tools → Selected category: add missing album covers** to review batch suggestions. Update other song metadata as needed.
-5. Use **Review & save to MP3** to inspect and save individual edits. Batch lyrics and accepted batch covers save through their respective tools.
+5. Use **Save changes** to inspect and save individual edits. Batch lyrics and accepted batch covers save through their respective tools.
 
 Lyrics and covers can be saved without creating timings. Opening a song is read-only. Manual work requires no account or network connection.
 

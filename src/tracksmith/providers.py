@@ -15,12 +15,15 @@ from typing import Protocol
 
 from PIL import Image, ImageOps
 
+from . import __version__
 from .cache import Cache
 from .jobs import JobContext
 from .lyrics import normalize_text
 from .model import Artwork, Candidate, Metadata, Track
 
-USER_AGENT = "Tracksmith/0.1 (local desktop application; https://musicbrainz.org/doc/MusicBrainz_API)"
+# Identify the application and its real version only. Deliberately no contact
+# address, account name or repository URL: requests carry no personal details.
+USER_AGENT = f"Tracksmith/{__version__} (local desktop application)"
 
 
 class MusicIdentificationService(Protocol):
@@ -413,8 +416,10 @@ class CoverArtProvider:
 
     def fetch(self, release_id: str, context: JobContext) -> Artwork:
         context.check()
-        url = f"https://coverartarchive.org/release/{release_id}/front-500"
-        identity = {"release": release_id}
+        # Request more than the 1000 px that prepare_artwork keeps, so that limit
+        # applies, instead of re-encoding a 500 px thumbnail.
+        url = f"https://coverartarchive.org/release/{release_id}/front-1200"
+        identity = {"release": release_id, "size": 1200}
         stored = self.http.cache.get("artwork", identity, 30 * 86400)
         if stored:
             import base64

@@ -28,8 +28,10 @@ def test_refinement_finds_acoustic_onset_without_moving_line_or_sustained_ends()
 def test_weak_words_are_not_trimmed_and_refinement_is_cancellable():
     audio = np.ones(16000, dtype=np.float32)
     words = [Word("first", 0, 0.2, 0.9), Word("uncertain", 0.2, 0.8, 0.2)]
+
     def score(batch):
         return np.full((len(batch), 2), 0.9)
+
     assert refine_starts(words, 0, score, audio, [0, 1, 2], JobContext()) == words
     context = JobContext()
     context.cancelled.set()

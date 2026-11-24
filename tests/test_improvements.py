@@ -124,12 +124,21 @@ def test_general_undo_restores_words_and_is_per_song(qtbot, mp3, tmp_path):
     assert window.track.aligned_lines[0] == before
 
 
-def test_pending_lyrics_lock_the_old_table_without_losing_text(qtbot, mp3, tmp_path):
+def test_pending_lyrics_allow_review_but_protect_timing_and_text(qtbot, mp3, tmp_path):
     window = timed_window(qtbot, mp3, tmp_path)
     window.lyrics_editor.setPlainText("[Verse]\nUpdated before\nMissing\nAfter")
     text = window.track.display_lyrics
     assert window.pending_banner.isVisible()
-    assert not window.table.isEnabled()
+    assert window.table.isEnabled()
+    assert not window.table.item(0, 0).flags() & Qt.ItemFlag.ItemIsEditable
+    assert not window.table.item(0, 1).flags() & Qt.ItemFlag.ItemIsEditable
+    assert window.review_button.isEnabled()
+    window.review_decision("line")
+    assert window.track.aligned_lines[0].line_reviewed
+    window.undo_stamp()
+    assert not window.track.aligned_lines[0].line_reviewed
+    assert window._lyrics_pending
+    assert window.lyrics_editor.toPlainText() == text
     window._set_selected(1)
     assert window.track.aligned_lines[0].start == 0.5
     window.table.item(0, 1).setText("Stale table edit")
@@ -320,7 +329,10 @@ def test_lrc_repeats_offset_and_imported_review_status():
         "[ar:Artist]\n[offset:+100]\n[00:00.50][00:02.00]Chorus\n[Verse]\nUntimed", 4
     )
     assert text == "Chorus\nChorus\n[Verse]\nUntimed"
-    assert [line.start for line in lines] == [0.6, 2.1, None]
+    # Per the LRC format, a positive [offset:] makes lyrics appear sooner.
+    assert [line.start for line in lines] == [0.4, 1.9, None]
+    _, later = parse_lrc("[offset:-250]\n[00:01.00]Later", 4)
+    assert later[0].start == 1.25
     assert len({line.line_id for line in lines}) == 3
     assert all(needs_review(line) for line in lines)
     assert lines[0].source == "imported" and not lines[0].line_reviewed
@@ -399,7 +411,9 @@ def test_large_font_layout_keeps_actions_and_song_identity_visible(qtbot, mp3, t
         )
         assert window.song_heading.toolTip() == window.track.proposed_metadata.title
         assert window.song_list.item(0).text().startswith("• ")
-        assert "Unsaved changes" in window.song_list.item(0).data(Qt.ItemDataRole.AccessibleTextRole)
+        assert "Unsaved changes" in window.song_list.item(0).data(
+            Qt.ItemDataRole.AccessibleTextRole
+        )
         dialog = WordTimingDialog(window.track.aligned_lines[0], window.player, 4, window)
         qtbot.addWidget(dialog)
         dialog.show()

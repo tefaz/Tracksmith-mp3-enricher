@@ -24,11 +24,17 @@ def cover():
 
 def release(group="original", year="2000", **updates):
     result = {
-        "id": "release-" + group, "title": "Original Album", "date": year,
-        "status": "Official", "artist-credit": [{"name": "Example Artist"}],
+        "id": "release-" + group,
+        "title": "Original Album",
+        "date": year,
+        "status": "Official",
+        "artist-credit": [{"name": "Example Artist"}],
         "release-group": {
-            "id": group, "title": "Original Album", "primary-type": "Album",
-            "secondary-types": [], "first-release-date": year,
+            "id": group,
+            "title": "Original Album",
+            "primary-type": "Album",
+            "secondary-types": [],
+            "first-release-date": year,
         },
         "cover-art-archive": {"front": True},
     }
@@ -36,7 +42,18 @@ def release(group="original", year="2000", **updates):
     return result
 
 
-@pytest.mark.parametrize("problem", ["compilation", "unofficial", "unknown_date", "wrong_artist", "late_edition", "ambiguous", "wrong_album"])
+@pytest.mark.parametrize(
+    "problem",
+    [
+        "compilation",
+        "unofficial",
+        "unknown_date",
+        "wrong_artist",
+        "late_edition",
+        "ambiguous",
+        "wrong_album",
+    ],
+)
 def test_original_album_rejects_uncertain_releases(problem):
     candidate = release()
     album = ""
@@ -86,7 +103,20 @@ class Http:
         return cover().data
 
 
-@pytest.mark.parametrize("problem", [None, "weak", "ambiguous", "wrong_title", "variant", "unapproved", "multiple_fronts", "short_clip", "no_artist"])
+@pytest.mark.parametrize(
+    "problem",
+    [
+        None,
+        "weak",
+        "ambiguous",
+        "wrong_title",
+        "variant",
+        "unapproved",
+        "multiple_fronts",
+        "short_clip",
+        "no_artist",
+    ],
+)
 def test_lookup_requires_audio_identity_and_approved_front(mp3, monkeypatch, problem):
     track = read_track(mp3)
     track.audio.duration = 40
@@ -135,16 +165,24 @@ class CoverProvider:
         return artwork, Candidate(Metadata(album=album), 0.9, "Text search")
 
 
-@pytest.mark.parametrize("problem", [None, "wrong_artist", "wrong_title", "ambiguous", "duplicate_editions", "no_results"])
+@pytest.mark.parametrize(
+    "problem",
+    [None, "wrong_artist", "wrong_title", "ambiguous", "duplicate_editions", "no_results"],
+)
 def test_name_lookup_needs_no_key_and_skips_uncertain_matches(mp3, monkeypatch, problem):
     track = read_track(mp3)
     track.audio.duration = 40
     http = Http()
     provider = BatchCoverProvider(http)
-    matches = [Candidate(
-        Metadata(artist="Example Artist", title="Example Song"), 0.95,
-        "MusicBrainz text search", recording_id="recording", release_id="release-original",
-    )]
+    matches = [
+        Candidate(
+            Metadata(artist="Example Artist", title="Example Song"),
+            0.95,
+            "MusicBrainz text search",
+            recording_id="recording",
+            release_id="release-original",
+        )
+    ]
     if problem == "wrong_artist":
         matches[0].metadata.artist = "Other Artist"
     elif problem == "wrong_title":
@@ -182,7 +220,9 @@ def test_name_lookup_needs_no_key_and_skips_uncertain_matches(mp3, monkeypatch, 
 
 def test_batch_adds_only_artwork_preserving_tags_audio_and_lyrics(mp3):
     track = read_track(mp3)
-    track.proposed_metadata = Metadata(title="Example Song", artist="Example Artist", album="Original Album")
+    track.proposed_metadata = Metadata(
+        title="Example Song", artist="Example Artist", album="Original Album"
+    )
     track.display_lyrics = "Keep my lyrics"
     track.aligned_lines = [LyricLine("Keep my lyrics", 1)]
     track = save_track(track)
@@ -213,7 +253,9 @@ def test_batch_rereads_disk_to_skip_any_existing_picture(mp3):
     assert mp3.read_bytes() == before
 
 
-@pytest.mark.parametrize("failure", [CoverSkipped("uncertain identity"), RuntimeError("network failure")])
+@pytest.mark.parametrize(
+    "failure", [CoverSkipped("uncertain identity"), RuntimeError("network failure")]
+)
 def test_cover_batch_skip_or_failure_does_not_stop_queue(mp3, tmp_path, failure):
     second = tmp_path / "second.mp3"
     second.write_bytes(mp3.read_bytes())
@@ -238,7 +280,11 @@ def test_cover_batch_cancellation_keeps_completed_saves(mp3, tmp_path):
     before = second.read_bytes()
     context = JobContext()
     result = run_batch(
-        [read_track(mp3), read_track(second)], "covers", Settings(), CoverProvider(), context,
+        [read_track(mp3), read_track(second)],
+        "covers",
+        Settings(),
+        CoverProvider(),
+        context,
         on_saved=lambda track: context.cancelled.set(),
     )
     assert result.cancelled

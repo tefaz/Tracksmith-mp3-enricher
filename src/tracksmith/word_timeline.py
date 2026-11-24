@@ -161,7 +161,11 @@ class WordTimeline(QWidget):
                 )
             )
             painter.drawRoundedRect(rect, 6, 6)
-            painter.setPen(self.palette().text().color() if self.palette().base().color().lightness() < 128 else QColor("#18303f"))
+            painter.setPen(
+                self.palette().text().color()
+                if self.palette().base().color().lightness() < 128
+                else QColor("#18303f")
+            )
             painter.save()
             painter.setClipRect(rect, Qt.ClipOperation.IntersectClip)
             text = painter.fontMetrics().elidedText(

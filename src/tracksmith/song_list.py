@@ -59,9 +59,7 @@ class SongLoadButton(QToolButton):
             painter.setFont(font)
             painter.drawText(10, 22, "MP3")
         else:
-            outline(
-                [(7, 26), (7, 10), (14, 10), (17, 13), (28, 13), (28, 26), (7, 26)]
-            )
+            outline([(7, 26), (7, 10), (14, 10), (17, 13), (28, 13), (28, 26), (7, 26)])
             painter.drawLine(7, 16, 28, 16)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor("#53ee87") if self.isEnabled() else self.palette().mid().color())

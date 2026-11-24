@@ -34,7 +34,9 @@ class CoverReviewDialog(QDialog):
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
         if result.cancelled:
-            layout.addWidget(QLabel("Search stopped early. You can review the suggestions found so far."))
+            layout.addWidget(
+                QLabel("Search stopped early. You can review the suggestions found so far.")
+            )
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         content = QWidget()
@@ -51,10 +53,14 @@ class CoverReviewDialog(QDialog):
             image.setAlignment(Qt.AlignmentFlag.AlignCenter)
             pixmap = QPixmap()
             pixmap.loadFromData(proposal.artwork.data)
-            image.setPixmap(pixmap.scaled(
-                200, 200, Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            ))
+            image.setPixmap(
+                pixmap.scaled(
+                    200,
+                    200,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
             box.addWidget(image)
             artist, title = parse_filename(proposal.track.path.name)
             md = proposal.track.existing_metadata
@@ -94,7 +100,9 @@ class CoverReviewDialog(QDialog):
         if result.rows:
             details = QPlainTextEdit()
             details.setReadOnly(True)
-            details.setPlainText("\n".join(f"{path.name}: {message}" for path, message in result.rows))
+            details.setPlainText(
+                "\n".join(f"{path.name}: {message}" for path, message in result.rows)
+            )
             details.setMaximumHeight(100)
             layout.addWidget(details)
         self.summary = QLabel()
@@ -104,7 +112,9 @@ class CoverReviewDialog(QDialog):
         )
         self.accept_all_button = QPushButton("Accept all")
         self.accept_all_button.setAutoDefault(False)
-        self.accept_all_button.setToolTip("Select every suggested cover. Files are saved only when you click Save accepted covers.")
+        self.accept_all_button.setToolTip(
+            "Select every suggested cover. Files are saved only when you click Save accepted covers."
+        )
         self.accept_all_button.clicked.connect(self.accept_all)
         buttons.addButton(self.accept_all_button, QDialogButtonBox.ButtonRole.ActionRole)
         self.save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
@@ -116,7 +126,11 @@ class CoverReviewDialog(QDialog):
 
     @property
     def accepted_proposals(self):
-        return [proposal for proposal, decision in zip(self.proposals, self.decisions) if decision is True]
+        return [
+            proposal
+            for proposal, decision in zip(self.proposals, self.decisions)
+            if decision is True
+        ]
 
     def decide(self, index, decision, refresh=True):
         self.decisions[index] = decision

@@ -27,16 +27,23 @@ def proposals(mp3, tmp_path):
     for name in ("First Song", "Second Song", "Unreviewed Song"):
         path = tmp_path / f"Artist - {name}.mp3"
         path.write_bytes(mp3.read_bytes())
-        result.proposals.append(CoverProposal(
-            read_track(path), cover(), Candidate(
-                Metadata(artist="Artist", title=name, album="Suggested Album"), 0.8,
-                "MusicBrainz text search",
-            ),
-        ))
+        result.proposals.append(
+            CoverProposal(
+                read_track(path),
+                cover(),
+                Candidate(
+                    Metadata(artist="Artist", title=name, album="Suggested Album"),
+                    0.8,
+                    "MusicBrainz text search",
+                ),
+            )
+        )
     return result
 
 
-def test_review_decisions_are_explicit_changeable_and_only_accepted_images_save(qtbot, mp3, tmp_path):
+def test_review_decisions_are_explicit_changeable_and_only_accepted_images_save(
+    qtbot, mp3, tmp_path
+):
     result = proposals(mp3, tmp_path)
     before = {p.track.path: p.track.path.read_bytes() for p in result.proposals}
     dialog = CoverReviewDialog(result)
@@ -56,7 +63,11 @@ def test_review_decisions_are_explicit_changeable_and_only_accepted_images_save(
     assert all(path.read_bytes() == data for path, data in before.items())
     accepted = dialog.accepted_proposals
     saved = run_batch(
-        [p.track for p in accepted], "covers", Settings(), AcceptedCoverProvider(accepted), JobContext()
+        [p.track for p in accepted],
+        "covers",
+        Settings(),
+        AcceptedCoverProvider(accepted),
+        JobContext(),
     )
     assert len(saved.saved) == 1
     assert read_track(accepted[0].track.path).artwork.data == accepted[0].artwork.data
@@ -137,7 +148,10 @@ def test_suggestions_allow_fuzzy_names_and_short_clips(mp3, monkeypatch):
     track = read_track(mp3)
     candidate = Candidate(
         Metadata(artist="Example Artist", title="Example Song!", album="An Album"),
-        0.81, "Text search", recording_id="r", release_id="edition",
+        0.81,
+        "Text search",
+        recording_id="r",
+        release_id="edition",
     )
     monkeypatch.setattr(
         "tracksmith.cover_batch.MusicBrainzProvider.search_covers",
@@ -151,7 +165,9 @@ def test_suggestions_allow_fuzzy_names_and_short_clips(mp3, monkeypatch):
 
 
 @pytest.mark.parametrize("cancel", [False, True])
-def test_ui_review_saves_only_accepted_or_nothing_on_cancel(qtbot, mp3, tmp_path, monkeypatch, cancel):
+def test_ui_review_saves_only_accepted_or_nothing_on_cancel(
+    qtbot, mp3, tmp_path, monkeypatch, cancel
+):
     window = MainWindow(Settings(cache_directory=str(tmp_path / "cache")))
     qtbot.addWidget(window)
     result = proposals(mp3, tmp_path)

@@ -31,7 +31,9 @@ def main():
         help="Recompute recognition and timing instead of reusing cached results",
     )
     parser.add_argument(
-        "--backend", choices=["whisper-attention", "whisper-refined", "whisper-ctc"], default="whisper-attention"
+        "--backend",
+        choices=["whisper-attention", "whisper-refined", "whisper-ctc"],
+        default="whisper-attention",
     )
     args = parser.parse_args()
     if args.output.exists() or args.output.with_suffix(".lrc").exists():

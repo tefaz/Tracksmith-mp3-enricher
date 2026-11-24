@@ -31,7 +31,9 @@ class JsonFormatter(logging.Formatter):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Tracksmith — MP3 metadata and local lyric synchronization")
+    parser = argparse.ArgumentParser(
+        description="Tracksmith — MP3 metadata and local lyric synchronization"
+    )
     parser.add_argument("mp3", nargs="?", type=Path)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()

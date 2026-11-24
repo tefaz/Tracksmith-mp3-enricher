@@ -149,7 +149,12 @@ def test_space_in_word_dialog_controls_playback_from_buttons_and_switches(qtbot,
         joined = dialog.join_check.isChecked()
         qtbot.keyClick(widget, Qt.Key.Key_Space)
         assert parent.is_playing()
-        QApplication.sendEvent(widget, QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Space, Qt.KeyboardModifier.NoModifier, " ", True))
+        QApplication.sendEvent(
+            widget,
+            QKeyEvent(
+                QEvent.Type.KeyPress, Qt.Key.Key_Space, Qt.KeyboardModifier.NoModifier, " ", True
+            ),
+        )
         assert parent.is_playing()
         qtbot.keyClick(widget, Qt.Key.Key_Space)
         assert not parent.is_playing()

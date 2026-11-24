@@ -78,7 +78,10 @@ def test_word_view_highlights_without_modifying_data_and_cancel_discards_draft(
     dialog.show()
     assert dialog.table.item(0, 1).text() == "00:00.500"
     dialog.playback_position(1100)
-    assert dialog.table.item(1, 0).background().color().name() == timing_selection_color(dialog.table).name()
+    assert (
+        dialog.table.item(1, 0).background().color().name()
+        == timing_selection_color(dialog.table).name()
+    )
     assert line == before
     dialog.table.item(0, 1).setText("00:00.550")
     assert dialog.drafts[0].start == 0.55
@@ -285,11 +288,26 @@ def test_saved_word_corrections_survive_cache_write_failure(qtbot, mp3, tmp_path
     window.close()
 
 
-def test_clear_automatic_words_keeps_line_times_manual_edits_and_supports_undo(qtbot, mp3, tmp_path):
+def test_clear_automatic_words_keeps_line_times_manual_edits_and_supports_undo(
+    qtbot, mp3, tmp_path
+):
     window = window_for(qtbot, mp3, tmp_path)
     window.track.aligned_lines = [
-        LyricLine("AI words", 0.2, 0.8, 0.9, "ai", [Word("AI", 0.2, 0.4), Word("words", 0.4, 0.8)], line_reviewed=True),
-        LyricLine("Manual words", 1, 1.8, words=[Word("Manual", 1, 1.3, 1, "manual"), Word("words", 1.3, 1.8)]),
+        LyricLine(
+            "AI words",
+            0.2,
+            0.8,
+            0.9,
+            "ai",
+            [Word("AI", 0.2, 0.4), Word("words", 0.4, 0.8)],
+            line_reviewed=True,
+        ),
+        LyricLine(
+            "Manual words",
+            1,
+            1.8,
+            words=[Word("Manual", 1, 1.3, 1, "manual"), Word("words", 1.3, 1.8)],
+        ),
         LyricLine("Estimate", 2, 2.5, words=[Word("Estimate", 2, 2.5, 0, "estimated")]),
         LyricLine("Adjusted", 3, 3.5, words=[Word("Adjusted", 3, 3.5, 0.8, "mixed")]),
     ]
@@ -302,7 +320,13 @@ def test_clear_automatic_words_keeps_line_times_manual_edits_and_supports_undo(q
     assert window.track.aligned_lines[1] == original[1]
     assert window.track.aligned_lines[3] == original[3]
     for line, old in zip(window.track.aligned_lines, original):
-        assert (line.start, line.end, line.source, line.confidence, line.line_reviewed) == (old.start, old.end, old.source, old.confidence, old.line_reviewed)
+        assert (line.start, line.end, line.source, line.confidence, line.line_reviewed) == (
+            old.start,
+            old.end,
+            old.source,
+            old.confidence,
+            old.line_reviewed,
+        )
     assert not window.clear_auto_words_button.isEnabled()
     window.undo_stamp()
     assert window.track.aligned_lines == original
@@ -319,8 +343,12 @@ def test_clear_all_timings_preserves_lyrics_and_exclusions_and_undoes_in_one_ste
     window.track.aligned_lines = [
         LyricLine("AI", 0.2, 0.8, 0.9, "ai", [Word("AI", 0.2, 0.8)]),
         LyricLine(
-            "Manual", 1, 1.8, words=[Word("Manual", 1, 1.8, 1, "manual")],
-            line_reviewed=True, words_reviewed=True,
+            "Manual",
+            1,
+            1.8,
+            words=[Word("Manual", 1, 1.8, 1, "manual")],
+            line_reviewed=True,
+            words_reviewed=True,
         ),
         LyricLine("Estimate", 2, 2.5, words=[Word("Estimate", 2, 2.5, 0, "estimated")]),
         LyricLine("Line only", 3, source="manual", line_reviewed=True),

@@ -16,3 +16,5 @@ class SongSession:
     stamp_history: list[tuple[int, LyricLine, LyricLine]] = field(default_factory=list)
     history: list[dict] = field(default_factory=list)
     redo: list[dict] = field(default_factory=list)
+    # (track object, dirty, timing category) from the last song-list refresh.
+    status_cache: tuple | None = field(default=None, repr=False, compare=False)

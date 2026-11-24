@@ -12,7 +12,8 @@ def assert_one_target(window):
     highlighted = [
         index
         for index in range(window.table.rowCount())
-        if window.table.item(index, 0).background().color().name() == timing_selection_color(window.table).name()
+        if window.table.item(index, 0).background().color().name()
+        == timing_selection_color(window.table).name()
     ]
     assert highlighted == [row]
     if window.track.aligned_lines[row].start is None:
@@ -213,4 +214,35 @@ def test_words_cell_opens_clicked_line_paused_or_playing(qtbot, mp3, tmp_path, m
         assert window.table.currentRow() == row
         assert not window.is_playing()
     assert len(opened) == 3
+    window.close()
+
+
+def test_pending_lyrics_keep_playback_and_seeking_on_applied_lines(qtbot, mp3, tmp_path):
+    window = stamping_window(qtbot, mp3, tmp_path)
+    original = deepcopy(window.track.aligned_lines)
+    draft = "Unapplied replacement\nAnother draft line"
+    window.lyrics_editor.setPlainText(draft)
+    window.player.setPosition(1100)
+    window.player.play()
+    assert window.table.isEnabled()
+    assert window.table.currentRow() == 2
+    qtbot.keyClick(window.table, Qt.Key.Key_Return)
+    assert window._lyrics_pending
+    assert window.track.aligned_lines == original
+    other = window.table.visualItemRect(window.table.item(0, 1)).center()
+    qtbot.mouseClick(window.table.viewport(), Qt.MouseButton.LeftButton, pos=other)
+    assert not window.is_playing()
+    assert window.player.position() == 200
+    assert window.table.currentRow() == 0
+    assert window.review_button.isEnabled()
+    window.review_decision("line")
+    assert window.track.aligned_lines[0].line_reviewed
+    assert window.lyrics_editor.toPlainText() == draft
+    assert window._lyrics_pending
+    # Applying a draft restores cell editing; removing old timed lines needs confirmation.
+    window.lyrics_editor.setPlainText("\n".join(line.text for line in original))
+    assert window.apply_lyrics()
+    assert window.track.aligned_lines[0].line_reviewed
+    assert window.table.item(0, 0).flags() & Qt.ItemFlag.ItemIsEditable
+    assert window.table.item(0, 1).flags() & Qt.ItemFlag.ItemIsEditable
     window.close()
